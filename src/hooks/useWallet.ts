@@ -22,7 +22,7 @@ export interface WalletState {
 
 const WALLET_ERROR_MESSAGES: Record<WalletError, string> = {
   WALLET_NOT_FOUND:
-    "🔌 Wallet extension not found. Please install Freighter, Albedo, or xBull.",
+    "Wallet extension not found. Please install Freighter, Albedo, or xBull.",
   USER_REJECTED: "Transaction was rejected by the user.",
   INSUFFICIENT_BALANCE: "Insufficient XLM balance to complete this transaction.",
   NETWORK_ERROR: "Network error. Please check your connection and try again.",

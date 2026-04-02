@@ -16,9 +16,8 @@ import {
 
 const CONTRACT_ID =
   process.env.NEXT_PUBLIC_CONTRACT_ID ||
-  "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+  "CC243UG6CXHGBEVO7JNWGHQ4OHAI55LARL5XZB7H6DTXVYFX33P6NW6C";
 
-/** Minimal starfield rendered client-side only */
 function Starfield() {
   return (
     <div className="starfield" aria-hidden="true">
@@ -117,7 +116,7 @@ export default function Home() {
 
   const isNotDefaultContract =
     CONTRACT_ID !==
-    "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    "CC243UG6CXHGBEVO7JNWGHQ4OHAI55LARL5XZB7H6DTXVYFX33P6NW6C";
   const campaignExpired =
     contract.campaign && Number(contract.campaign.deadline) < Date.now() / 1000;
 
@@ -221,7 +220,7 @@ export default function Home() {
               ) : (
                 <>
                   <button className="donate-open-btn" onClick={wallet.connect}>
-                    🔌 Connect Wallet to Donate
+                    Connect Wallet to Donate
                   </button>
                   <p className="connect-prompt">
                     Supports Freighter, Albedo, xBull, Lobstr, and more

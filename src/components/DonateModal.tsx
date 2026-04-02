@@ -65,7 +65,7 @@ export function DonateModal({
     <div className="modal-backdrop" onClick={handleBackdropClick}>
       <div className="modal-box">
         <div className="modal-header">
-          <h3 className="modal-title">💫 Make a Donation</h3>
+          <h3 className="modal-title">Make a Donation</h3>
           {!isPending && (
             <button className="modal-close" onClick={onClose}>
               ✕

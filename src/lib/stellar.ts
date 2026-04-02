@@ -1,7 +1,10 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
-
+export const CONTRACT_ID =
+  process.env.NEXT_PUBLIC_CONTRACT_ID ||
+  "CC243UG6CXHGBEVO7JNWGHQ4OHAI55LARL5XZB7H6DTXVYFX33P6NW6C";
+  
 export const NETWORK = StellarSdk.Networks.TESTNET;
-export const RPC_URL =
+export const RPC_URL = 
   process.env.NEXT_PUBLIC_SOROBAN_RPC || "https://soroban-testnet.stellar.org";
 export const EXPLORER_URL = "https://stellar.expert/explorer/testnet";
 
