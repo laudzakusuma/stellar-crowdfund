@@ -9,7 +9,6 @@ const CONTRACT_ID =
 const RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC || "https://soroban-testnet.stellar.org";
 
-// Dummy read-only account for simulations
 const READ_ONLY_ACCOUNT =
   "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
 
@@ -40,12 +39,7 @@ export function useContract() {
   const [events, setEvents] = useState<DonationEvent[]>([]);
   const [myDonation, setMyDonation] = useState<bigint>(0n);
   const lastLedgerRef = useRef<number>(0);
-
   const server = new StellarSdk.rpc.Server(RPC_URL);
-
-  /**
-   * Read campaign data from contract via simulation
-   */
   const fetchCampaign = useCallback(async () => {
     try {
       const contract = new StellarSdk.Contract(CONTRACT_ID);
@@ -76,7 +70,6 @@ export function useContract() {
         setError(null);
       }
     } catch (err: any) {
-      // Contract not initialized yet — show placeholder
       if (err?.message?.includes("not initialized") || err?.message?.includes("MissingValue")) {
         setError("Contract not initialized. Please deploy and initialize the contract first.");
       } else {
@@ -88,9 +81,6 @@ export function useContract() {
     }
   }, []);
 
-  /**
-   * Fetch my donation amount
-   */
   const fetchMyDonation = useCallback(async (address: string) => {
     try {
       const contract = new StellarSdk.Contract(CONTRACT_ID);
@@ -119,14 +109,10 @@ export function useContract() {
     }
   }, []);
 
-  /**
-   * Fetch contract events for real-time feed
-   */
   const fetchEvents = useCallback(async () => {
     try {
       const ledgerResp = await server.getLatestLedger();
       const currentLedger = ledgerResp.sequence;
-      // Look back 1000 ledgers (~1 hour)
       const startLedger = Math.max(1, currentLedger - 1000);
 
       if (startLedger <= lastLedgerRef.current) return;
@@ -153,7 +139,6 @@ export function useContract() {
           }
         });
 
-        // Only capture "donated" events
         if (topicStr[0] === "donated") {
           try {
             const value = StellarSdk.scValToNative(ev.value);
@@ -182,9 +167,6 @@ export function useContract() {
     }
   }, []);
 
-  /**
-   * Build donate transaction XDR
-   */
   const buildDonateXDR = useCallback(
     async (address: string, amountXLM: number): Promise<string> => {
       const contract = new StellarSdk.Contract(CONTRACT_ID);
@@ -225,14 +207,12 @@ export function useContract() {
     []
   );
 
-  // Auto-refresh campaign every 5 seconds
   useEffect(() => {
     fetchCampaign();
     const interval = setInterval(fetchCampaign, 5000);
     return () => clearInterval(interval);
   }, [fetchCampaign]);
 
-  // Auto-refresh events every 8 seconds
   useEffect(() => {
     fetchEvents();
     const interval = setInterval(fetchEvents, 8000);

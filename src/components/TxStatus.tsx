@@ -33,7 +33,6 @@ export function TxStatusBanner({
 
         {status === "success" && (
           <>
-            <span className="tx-icon">✅</span>
             <div className="tx-text">
               <strong>Transaction Confirmed!</strong>
               {txHash && (
@@ -43,7 +42,7 @@ export function TxStatusBanner({
                   rel="noopener noreferrer"
                   className="tx-hash-link"
                 >
-                  View on Stellar Expert ↗
+                  View on Stellar Expert
                 </a>
               )}
             </div>

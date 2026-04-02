@@ -22,7 +22,6 @@ const CONTRACT_ID =
 function Starfield() {
   return (
     <div className="starfield" aria-hidden="true">
-      {/* Nebula blobs */}
       <div
         className="nebula"
         style={{
@@ -54,7 +53,6 @@ function Starfield() {
         }}
       />
 
-      {/* Stars */}
       {Array.from({ length: 80 }).map((_, i) => {
         const size = Math.random() * 2.5 + 0.5;
         return (
@@ -85,15 +83,11 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
-
-  // Fetch user's own donation amount when address becomes available
   useEffect(() => {
     if (wallet.address) {
       contract.fetchMyDonation(wallet.address);
     }
   }, [wallet.address, contract.fetchMyDonation]);
-
-  // Refresh after successful tx
   useEffect(() => {
     if (wallet.txStatus === "success") {
       setModalOpen(false);
@@ -110,15 +104,10 @@ export default function Home() {
       if (!wallet.address) return;
 
       try {
-        // Build XDR from contract hook
         const xdr = await contract.buildDonateXDR(wallet.address, amountXLM);
-        // Sign & submit via wallet hook
         await wallet.signAndSubmit(xdr);
       } catch (err: any) {
-        // buildDonateXDR can throw "insufficient_balance"
         if (err?.message?.includes("insufficient")) {
-          // The error surfaces through wallet.error state automatically
-          // after signAndSubmit; here we close the modal on hard build errors
         }
         setModalOpen(false);
       }
@@ -135,8 +124,6 @@ export default function Home() {
   return (
     <div className="page-wrapper">
       {mounted && <Starfield />}
-
-      {/* ── Header ── */}
       <header className="site-header">
         <div className="container">
           <div className="header-inner">
@@ -158,13 +145,9 @@ export default function Home() {
           </div>
         </div>
       </header>
-
-      {/* ── Main ── */}
       <main className="main-content">
         <div className="container">
           <div className="content-stack">
-
-            {/* Hero */}
             <section className="hero-banner">
               <p className="hero-eyebrow">Stellar Yellow Belt · Level 2</p>
               <h1 className="hero-title">
@@ -175,16 +158,12 @@ export default function Home() {
                 on the Stellar testnet. Transparent, trustless, on-chain.
               </p>
             </section>
-
-            {/* Transaction Status — always visible when active */}
             <TxStatusBanner
               status={wallet.txStatus}
               txHash={wallet.txHash}
               errorMessage={wallet.errorMessage}
               onDismiss={wallet.resetTxStatus}
             />
-
-            {/* Campaign */}
             {contract.loading ? (
               <div className="card">
                 <div className="skeleton" style={{ height: 24, width: "60%", marginBottom: 16 }} />
@@ -211,8 +190,6 @@ export default function Home() {
                 myDonation={contract.myDonation}
               />
             ) : null}
-
-            {/* Donate CTA */}
             <div className="card donate-section">
               {wallet.address ? (
                 <button
@@ -234,11 +211,11 @@ export default function Home() {
                       Processing…
                     </>
                   ) : campaignExpired ? (
-                    "⌛ Campaign Ended"
+                    "Campaign Ended"
                   ) : contract.campaign?.withdrawn ? (
-                    "✅ Funds Withdrawn"
+                    "Funds Withdrawn"
                   ) : (
-                    "💫 Donate Now"
+                    "Donate Now"
                   )}
                 </button>
               ) : (
@@ -252,13 +229,9 @@ export default function Home() {
                 </>
               )}
             </div>
-
-            {/* Live Event Feed */}
             <EventFeed events={contract.events} />
-
-            {/* Contract Info */}
             <div className="info-section">
-              <p className="info-title">🔗 Contract Details</p>
+              <p className="info-title">Contract Details</p>
               <div className="info-grid">
                 <div className="info-row">
                   <span className="info-key">Network</span>
@@ -294,7 +267,7 @@ export default function Home() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      stellar.expert/testnet ↗
+                      stellar.expert/testnet
                     </a>
                   </span>
                 </div>
@@ -318,13 +291,11 @@ export default function Home() {
           </div>
         </div>
       </main>
-
-      {/* ── Footer ── */}
       <footer className="site-footer">
         <div className="container">
           <div className="footer-inner">
             <span className="footer-text">
-              ✦ Stellar Crowdfund · Yellow Belt · Built on Soroban
+              Stellar Crowdfund · Yellow Belt · Built on Soroban
             </span>
             <div className="footer-links">
               <a
@@ -352,8 +323,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-
-      {/* ── Donate Modal ── */}
       <DonateModal
         isOpen={modalOpen}
         onClose={() => {

@@ -76,8 +76,6 @@ export function DonateModal({
         <p className="modal-subtitle">
           Support this campaign on the Stellar testnet
         </p>
-
-        {/* Quick amounts */}
         <div className="quick-amounts">
           {QUICK_AMOUNTS.map((val) => (
             <button
@@ -90,8 +88,6 @@ export function DonateModal({
             </button>
           ))}
         </div>
-
-        {/* Custom input */}
         <div className="amount-input-wrapper">
           <input
             type="text"
@@ -108,8 +104,8 @@ export function DonateModal({
         {inputError && <p className="field-error">{inputError}</p>}
 
         <div className="modal-info">
-          <span>🔒 Secured by Soroban smart contract</span>
-          <span>⚡ Stellar Testnet</span>
+          <span>Secured by Soroban smart contract</span>
+          <span>Stellar Testnet</span>
         </div>
 
         <button

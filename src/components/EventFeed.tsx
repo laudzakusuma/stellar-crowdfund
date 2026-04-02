@@ -16,7 +16,7 @@ export function EventFeed({ events }: EventFeedProps) {
           <h3 className="feed-title">Live Donation Feed</h3>
         </div>
         <div className="feed-empty">
-          <p>No donations yet. Be the first! 🚀</p>
+          <p>No donations yet. Be the first!</p>
         </div>
       </div>
     );

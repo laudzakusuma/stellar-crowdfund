@@ -27,14 +27,13 @@ export function CampaignCard({ campaign, myDonation }: CampaignCardProps) {
 
   return (
     <div className="campaign-card">
-      {/* Status Badge */}
       <div className="campaign-status-row">
         {goalReached ? (
-          <span className="badge badge-success">🎯 Goal Reached!</span>
+          <span className="badge badge-success">Goal Reached!</span>
         ) : expired ? (
-          <span className="badge badge-expired">⌛ Ended</span>
+          <span className="badge badge-expired">Ended</span>
         ) : (
-          <span className="badge badge-active">🟢 Active</span>
+          <span className="badge badge-active">Active</span>
         )}
         {CONTRACT_ID && CONTRACT_ID !== "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" && (
           <a
@@ -43,18 +42,14 @@ export function CampaignCard({ campaign, myDonation }: CampaignCardProps) {
             rel="noopener noreferrer"
             className="contract-link"
           >
-            View Contract ↗
+            View Contract
           </a>
         )}
       </div>
-
-      {/* Title */}
       <h2 className="campaign-title">{campaign.title}</h2>
       {campaign.description && (
         <p className="campaign-description">{campaign.description}</p>
       )}
-
-      {/* Progress */}
       <div className="progress-section">
         <div className="progress-labels">
           <span className="raised-label">
@@ -86,7 +81,6 @@ export function CampaignCard({ campaign, myDonation }: CampaignCardProps) {
         </div>
       </div>
 
-      {/* Stats Row */}
       <div className="stats-row">
         <div className="stat-item">
           <span className="stat-value">
@@ -107,11 +101,9 @@ export function CampaignCard({ campaign, myDonation }: CampaignCardProps) {
           <span className="stat-label">Backers</span>
         </div>
       </div>
-
-      {/* My Donation */}
       {myDonation > 0n && (
         <div className="my-donation-banner">
-          ⭐ You donated <strong>{stroopsToXLM(myDonation)} XLM</strong> to this campaign
+          You donated <strong>{stroopsToXLM(myDonation)} XLM</strong> to this campaign
         </div>
       )}
     </div>

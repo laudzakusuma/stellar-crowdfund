@@ -67,8 +67,6 @@ export function WalletConnect({
           )}
         </button>
       )}
-
-      {/* Error Banner — shows all 3 error types */}
       {error && errorMessage && (
         <div className={`error-banner error-${error.toLowerCase()}`}>
           <div className="error-content">
@@ -81,7 +79,7 @@ export function WalletConnect({
                   rel="noopener noreferrer"
                   className="install-link"
                 >
-                  Install Freighter ↗
+                  Install Freighter
                 </a>
                 <a
                   href="https://albedo.link"
@@ -89,7 +87,7 @@ export function WalletConnect({
                   rel="noopener noreferrer"
                   className="install-link"
                 >
-                  Install Albedo ↗
+                  Install Albedo
                 </a>
               </div>
             )}

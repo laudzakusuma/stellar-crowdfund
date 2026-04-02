@@ -1,4 +1,4 @@
-# 🌟 Stellar Crowdfund
+# Stellar Crowdfund
 
 > Decentralized crowdfunding on Stellar Testnet — **Yellow Belt (Level 2)** submission for the [Stellar Journey to Mastery](https://stellar.org) program.
 
@@ -9,13 +9,13 @@
 
 ---
 
-## 🔗 Live Demo
+## Live Demo
 
 **→ [https://stellar-crowdfund.vercel.app](https://stellar-crowdfund.vercel.app)** *(deploy to Vercel and update this link)*
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 ### Wallet Connection Options
 ![Wallet Options](./docs/screenshots/wallets.png)
@@ -31,7 +31,7 @@
 
 ---
 
-## ✅ Level 2 Requirements Checklist
+## Level 2 Requirements Checklist
 
 | Requirement | Status | Notes |
 |---|---|---|
@@ -43,7 +43,7 @@
 
 ---
 
-## 🔐 Smart Contract
+## Smart Contract
 
 **Contract ID:** `CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
 
@@ -66,7 +66,7 @@
 
 ---
 
-## 🛡️ Error Handling (3 Types)
+## Error Handling (3 Types)
 
 ```typescript
 // Error Type 1: Wallet extension not installed
@@ -83,7 +83,7 @@ All errors surface in a dismissible banner with color-coded UI.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone & Install
 
@@ -144,7 +144,7 @@ npx vercel --prod
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 stellar-crowdfund/
@@ -174,7 +174,7 @@ stellar-crowdfund/
 
 ---
 
-## 🔄 Real-Time Features
+## Real-Time Features
 
 - **Campaign data** auto-refreshes every **5 seconds** via RPC simulation
 - **Contract events** polled every **8 seconds** via `getEvents` API
@@ -183,7 +183,7 @@ stellar-crowdfund/
 
 ---
 
-## 🧪 Running Contract Tests
+## Running Contract Tests
 
 ```bash
 cd contracts/crowdfund
@@ -198,7 +198,7 @@ Tests cover:
 
 ---
 
-## 🌐 Wallets Supported
+## Wallets Supported
 
 | Wallet | Platform |
 |---|---|
@@ -210,7 +210,7 @@ Tests cover:
 
 ---
 
-## 📦 Tech Stack
+## Tech Stack
 
 - **Frontend:** Next.js 14, TypeScript, Tailwind CSS
 - **Blockchain:** Stellar Testnet, Soroban smart contracts
@@ -221,7 +221,7 @@ Tests cover:
 
 ---
 
-## 🎯 Ecosystem Fit
+## Ecosystem Fit
 
 Crowdfunding is a natural use case for Stellar:
 - Fast finality (5 seconds) → donors get instant confirmation
@@ -230,7 +230,3 @@ Crowdfunding is a natural use case for Stellar:
 - Soroban contracts → trustless, automated fund release
 
 ---
-
-## 📜 License
-
-MIT — Built for the Stellar Journey to Mastery, Yellow Belt challenge.

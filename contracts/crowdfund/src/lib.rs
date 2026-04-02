@@ -200,7 +200,6 @@ impl CrowdfundContract {
             .expect("Campaign not initialized")
     }
 
-    /// Get donation amount for a specific address
     pub fn get_donation(env: Env, donor: Address) -> i128 {
         env.storage()
             .instance()
@@ -208,7 +207,6 @@ impl CrowdfundContract {
             .unwrap_or(0)
     }
 
-    /// Get progress percentage (0–100)
     pub fn get_progress(env: Env) -> u32 {
         let campaign: Campaign = env
             .storage()
@@ -228,7 +226,6 @@ impl CrowdfundContract {
         }
     }
 
-    /// Check if campaign is still active
     pub fn is_active(env: Env) -> bool {
         let campaign: Campaign = env
             .storage()
@@ -240,7 +237,6 @@ impl CrowdfundContract {
     }
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -352,6 +348,6 @@ mod tests {
         );
 
         client.donate(&donor, &10_000_000i128);
-        client.withdraw(); // should panic
+        client.withdraw();
     }
 }

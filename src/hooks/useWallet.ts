@@ -23,18 +23,17 @@ export interface WalletState {
 const WALLET_ERROR_MESSAGES: Record<WalletError, string> = {
   WALLET_NOT_FOUND:
     "🔌 Wallet extension not found. Please install Freighter, Albedo, or xBull.",
-  USER_REJECTED: "🚫 Transaction was rejected by the user.",
-  INSUFFICIENT_BALANCE: "💸 Insufficient XLM balance to complete this transaction.",
-  NETWORK_ERROR: "🌐 Network error. Please check your connection and try again.",
-  UNKNOWN: "❌ An unexpected error occurred. Please try again.",
+  USER_REJECTED: "Transaction was rejected by the user.",
+  INSUFFICIENT_BALANCE: "Insufficient XLM balance to complete this transaction.",
+  NETWORK_ERROR: "Network error. Please check your connection and try again.",
+  UNKNOWN: "An unexpected error occurred. Please try again.",
 };
 
-/**
- * Classifies raw errors into our 3 primary error types:
- * 1. WALLET_NOT_FOUND — extension missing or not installed
- * 2. USER_REJECTED    — user clicked reject/cancel in wallet popup
- * 3. INSUFFICIENT_BALANCE — not enough XLM for tx + fees
- */
+// Classifies raw errors into our 3 primary error types:
+// 1. WALLET_NOT_FOUND — extension missing or not installed
+// 2. USER_REJECTED    — user clicked reject/cancel in wallet popup
+// 3. INSUFFICIENT_BALANCE — not enough XLM for tx + fees
+
 function classifyError(err: unknown): { type: WalletError; message: string } {
   if (!err) return { type: "UNKNOWN", message: "Unknown error" };
 
@@ -43,7 +42,6 @@ function classifyError(err: unknown): { type: WalletError; message: string } {
       ? err.message.toLowerCase()
       : String(err).toLowerCase();
 
-  // ❌ Error Type 1: Wallet extension not found / not installed
   if (
     msg.includes("not found") ||
     msg.includes("not installed") ||
@@ -60,7 +58,6 @@ function classifyError(err: unknown): { type: WalletError; message: string } {
     };
   }
 
-  // ❌ Error Type 2: User rejected the transaction
   if (
     msg.includes("reject") ||
     msg.includes("denied") ||
@@ -75,7 +72,6 @@ function classifyError(err: unknown): { type: WalletError; message: string } {
     };
   }
 
-  // ❌ Error Type 3: Insufficient balance
   if (
     msg.includes("insufficient") ||
     msg.includes("balance") ||
@@ -89,7 +85,6 @@ function classifyError(err: unknown): { type: WalletError; message: string } {
     };
   }
 
-  // Network errors
   if (
     msg.includes("network") ||
     msg.includes("fetch") ||
@@ -120,7 +115,6 @@ export function useWallet() {
   const getKit = useCallback(async () => {
     if (kitRef.current) return kitRef.current;
 
-    // Dynamically import to avoid SSR issues
     const { StellarWalletsKit, WalletNetwork, allowAllModules } = await import(
       "@creit.tech/stellar-wallets-kit"
     );
@@ -138,9 +132,6 @@ export function useWallet() {
     setState((s) => ({ ...s, error: null, errorMessage: null }));
   }, []);
 
-  /**
-   * Open wallet selection modal and connect
-   */
   const connect = useCallback(async () => {
     setState((s) => ({ ...s, isConnecting: true, error: null, errorMessage: null }));
 
@@ -196,10 +187,6 @@ export function useWallet() {
     kitRef.current = null;
   }, []);
 
-  /**
-   * Sign and submit a transaction XDR to the Stellar testnet
-   * Returns the tx hash on success, null on failure
-   */
   const signAndSubmit = useCallback(
     async (xdr: string): Promise<string | null> => {
       if (!state.address) {
@@ -223,7 +210,6 @@ export function useWallet() {
         const kit = await getKit();
         const { WalletNetwork } = await import("@creit.tech/stellar-wallets-kit");
 
-        // Sign transaction
         let signedTxXdr: string;
         try {
           const result = await kit.signTransaction(xdr, {
@@ -233,7 +219,6 @@ export function useWallet() {
           });
           signedTxXdr = result.signedTxXdr;
         } catch (err) {
-          // ❌ Error Type 2: User rejected in wallet popup
           const { type, message } = classifyError(err);
           setState((s) => ({
             ...s,
@@ -244,7 +229,6 @@ export function useWallet() {
           return null;
         }
 
-        // Submit to network
         const { rpc, TransactionBuilder, Networks } = await import(
           "@stellar/stellar-sdk"
         );
@@ -258,7 +242,6 @@ export function useWallet() {
         const result = await server.sendTransaction(tx);
 
         if (result.status === "ERROR") {
-          // ❌ Error Type 3: Insufficient balance or contract error
           const resultMeta = result.errorResult?.result()?.toXDR("base64") || "";
           const isBalanceErr =
             resultMeta.includes("op_underfunded") ||
@@ -275,7 +258,6 @@ export function useWallet() {
           return null;
         }
 
-        // Poll for confirmation
         const hash = result.hash;
         let attempts = 0;
 
@@ -305,7 +287,6 @@ export function useWallet() {
           attempts++;
         }
 
-        // Timeout
         setState((s) => ({
           ...s,
           txStatus: "error",
