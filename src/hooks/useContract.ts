@@ -40,7 +40,132 @@ export function useContract() {
   const [myDonation, setMyDonation] = useState<bigint>(0n);
   const lastLedgerRef = useRef<number>(0);
   const server = new StellarSdk.rpc.Server(RPC_URL);
+  const campaignCacheRef = useRef<{ data: Campaign; timestamp: number } | null>(null);
+  const CACHE_TTL = 5000; // 5 detik
+  const wsRef = useRef<WebSocket | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchEventsPoll = useCallback(async () => {
+    try {
+      const ledgerResp = await server.getLatestLedger();
+      const currentLedger = ledgerResp.sequence;
+      const startLedger = Math.max(1, currentLedger - 1000);
+      if (startLedger <= lastLedgerRef.current) return;
+
+      const resp = await server.getEvents({
+        startLedger,
+        filters: [{ type: "contract", contractIds: [CONTRACT_ID] }],
+        limit: 50,
+      });
+
+      const newEvents: DonationEvent[] = [];
+      for (const ev of resp.events ?? []) {
+        const topicStr = ev.topic.map((t: any) => {
+          try { return StellarSdk.scValToNative(t); } catch { return ""; }
+        });
+        if (topicStr[0] === "donated") {
+          try {
+            const value = StellarSdk.scValToNative(ev.value);
+            newEvents.push({
+              id: ev.id,
+              donor: String(topicStr[1] || "Unknown"),
+              amount: BigInt(Array.isArray(value) ? value[0] : value ?? 0),
+              total_raised: BigInt(Array.isArray(value) ? value[1] : 0),
+              ledger: ev.ledger,
+              timestamp: Date.now(),
+            });
+          } catch {}
+        }
+      }
+
+      if (newEvents.length > 0) {
+        setEvents((prev) => {
+          const existingIds = new Set(prev.map((e) => e.id));
+          const unique = newEvents.filter((e) => !existingIds.has(e.id));
+          return [...unique, ...prev].slice(0, 20);
+        });
+        lastLedgerRef.current = currentLedger;
+      }
+    } catch (err) {
+      console.error("fetchEventsPoll:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const setupWebSocket = () => {
+      const wsUrl = RPC_URL.replace("https", "wss");
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        const subscribeMsg = {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "subscribe",
+          params: { eventType: "contract", contractIds: [CONTRACT_ID] },
+        };
+        ws.send(JSON.stringify(subscribeMsg));
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.method === "event") {
+            const ev = data.params;
+            const newEvent: DonationEvent = {
+              id: ev.id,
+              donor: ev.topic[1] || "Unknown",
+              amount: BigInt(ev.value?.amount || 0),
+              total_raised: BigInt(ev.value?.total_raised || 0),
+              ledger: ev.ledger,
+              timestamp: Date.now(),
+            };
+            setEvents((prev) => [newEvent, ...prev].slice(0, 20));
+            if (ev.ledger > lastLedgerRef.current) lastLedgerRef.current = ev.ledger;
+          }
+        } catch (err) {
+          console.error("WebSocket message error", err);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket error, falling back to polling", err);
+        ws.close();
+        wsRef.current = null;
+        if (!pollIntervalRef.current) {
+          pollIntervalRef.current = setInterval(fetchEventsPoll, 8000);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket closed, switching to polling");
+        if (wsRef.current === ws) wsRef.current = null;
+        if (!pollIntervalRef.current) {
+          pollIntervalRef.current = setInterval(fetchEventsPoll, 8000);
+        }
+      };
+    };
+
+    setupWebSocket();
+
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [fetchEventsPoll]);
+
   const fetchCampaign = useCallback(async () => {
+    const now = Date.now();
+    if (campaignCacheRef.current && (now - campaignCacheRef.current.timestamp) < CACHE_TTL) {
+      setCampaign(campaignCacheRef.current.data);
+      setLoading(false);
+      return;
+    }
+
     try {
       const contract = new StellarSdk.Contract(CONTRACT_ID);
       const account = await server.getAccount(READ_ONLY_ACCOUNT);
@@ -57,7 +182,7 @@ export function useContract() {
 
       if (StellarSdk.rpc.Api.isSimulationSuccess(simResult)) {
         const raw = StellarSdk.scValToNative(simResult.result!.retval);
-        setCampaign({
+        const campaignData = {
           title: raw.title || "Stellar Crowdfund Campaign",
           description: raw.description || "",
           goal: BigInt(raw.goal ?? 0),
@@ -66,7 +191,9 @@ export function useContract() {
           owner: raw.owner || "",
           withdrawn: Boolean(raw.withdrawn),
           donor_count: Number(raw.donor_count ?? 0),
-        });
+        };
+        campaignCacheRef.current = { data: campaignData, timestamp: now };
+        setCampaign(campaignData);
         setError(null);
       }
     } catch (err: any) {
@@ -106,64 +233,6 @@ export function useContract() {
       }
     } catch (err) {
       console.error("fetchMyDonation:", err);
-    }
-  }, []);
-
-  const fetchEvents = useCallback(async () => {
-    try {
-      const ledgerResp = await server.getLatestLedger();
-      const currentLedger = ledgerResp.sequence;
-      const startLedger = Math.max(1, currentLedger - 1000);
-
-      if (startLedger <= lastLedgerRef.current) return;
-
-      const resp = await server.getEvents({
-        startLedger,
-        filters: [
-          {
-            type: "contract",
-            contractIds: [CONTRACT_ID],
-          },
-        ],
-        limit: 50,
-      });
-
-      const newEvents: DonationEvent[] = [];
-
-      for (const ev of resp.events ?? []) {
-        const topicStr = ev.topic.map((t: any) => {
-          try {
-            return StellarSdk.scValToNative(t);
-          } catch {
-            return "";
-          }
-        });
-
-        if (topicStr[0] === "donated") {
-          try {
-            const value = StellarSdk.scValToNative(ev.value);
-            newEvents.push({
-              id: ev.id,
-              donor: String(topicStr[1] || "Unknown"),
-              amount: BigInt(Array.isArray(value) ? value[0] : value ?? 0),
-              total_raised: BigInt(Array.isArray(value) ? value[1] : 0),
-              ledger: ev.ledger,
-              timestamp: Date.now(),
-            });
-          } catch {}
-        }
-      }
-
-      if (newEvents.length > 0) {
-        setEvents((prev) => {
-          const existingIds = new Set(prev.map((e) => e.id));
-          const unique = newEvents.filter((e) => !existingIds.has(e.id));
-          return [...unique, ...prev].slice(0, 20);
-        });
-        lastLedgerRef.current = currentLedger;
-      }
-    } catch (err) {
-      console.error("fetchEvents:", err);
     }
   }, []);
 
@@ -213,12 +282,6 @@ export function useContract() {
     return () => clearInterval(interval);
   }, [fetchCampaign]);
 
-  useEffect(() => {
-    fetchEvents();
-    const interval = setInterval(fetchEvents, 8000);
-    return () => clearInterval(interval);
-  }, [fetchEvents]);
-
   return {
     campaign,
     loading,
@@ -227,7 +290,7 @@ export function useContract() {
     myDonation,
     fetchCampaign,
     fetchMyDonation,
-    fetchEvents,
+    fetchEvents: fetchEventsPoll, // expose polling jika diperlukan
     buildDonateXDR,
   };
 }
