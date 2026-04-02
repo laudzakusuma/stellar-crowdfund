@@ -25,6 +25,10 @@
 ![Campaign](./docs/screenshots/campaign.png)
 > Real-time fundraising progress bar, backed by Soroban smart contract
 
+### Main Interface
+![Main Interface](./docs/screenshots/main-interface.png)
+> Halaman utama crowdfund dengan tombol Connect Wallet dan status testnet.
+
 ### Transaction Status
 ![Tx Status](./docs/screenshots/tx-status.png)
 > Pending → Success → Explorer link flow
@@ -77,11 +81,6 @@
 
 // Error Type 3: Not enough XLM for transaction + fees
 "INSUFFICIENT_BALANCE" → Clear explanation of insufficient funds
-```
-
-All errors surface in a dismissible banner with color-coded UI.
-
----
 
 ## Quick Start
 
