@@ -9,12 +9,6 @@
 
 ---
 
-## Live Demo
-
-**→ [https://stellar-crowdfund.vercel.app](https://stellar-crowdfund.vercel.app)** *(deploy to Vercel and update this link)*
-
----
-
 ## Screenshots
 
 ### Wallet Connection Options
