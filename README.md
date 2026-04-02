@@ -11,10 +11,6 @@
 
 ## Screenshots
 
-### Wallet Connection Options
-![Wallet Options](./docs/screenshots/wallets.png)
-> Multi-wallet selection modal — Freighter, Albedo, xBull, Lobstr, and more via StellarWalletsKit
-
 ### Campaign Progress
 ![Campaign](./docs/screenshots/campaign.png)
 > Real-time fundraising progress bar, backed by Soroban smart contract
@@ -22,10 +18,6 @@
 ### Main Interface
 ![Main Interface](./docs/screenshots/main-interface.png)
 > Halaman utama crowdfund dengan tombol Connect Wallet dan status testnet.
-
-### Transaction Status
-![Tx Status](./docs/screenshots/tx-status.png)
-> Pending → Success → Explorer link flow
 
 ---
 
