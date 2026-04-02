@@ -9,17 +9,7 @@
 
 ---
 
-## Live Demo
-
-**→ [https://stellar-crowdfund.vercel.app](https://stellar-crowdfund.vercel.app)** *(deploy to Vercel and update this link)*
-
----
-
 ## Screenshots
-
-### Wallet Connection Options
-![Wallet Options](./docs/screenshots/wallets.png)
-> Multi-wallet selection modal — Freighter, Albedo, xBull, Lobstr, and more via StellarWalletsKit
 
 ### Campaign Progress
 ![Campaign](./docs/screenshots/campaign.png)
@@ -28,10 +18,6 @@
 ### Main Interface
 ![Main Interface](./docs/screenshots/main-interface.png)
 > Halaman utama crowdfund dengan tombol Connect Wallet dan status testnet.
-
-### Transaction Status
-![Tx Status](./docs/screenshots/tx-status.png)
-> Pending → Success → Explorer link flow
 
 ---
 
@@ -49,7 +35,7 @@
 
 ## Smart Contract
 
-**Contract ID:** `CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`
+**Contract ID:** `CC243UG6CXHGBEVO7JNWGHQ4OHAI55LARL5XZB7H6DTXVYFX33P6NW6C`
 
 **Network:** Stellar Testnet
 
