@@ -351,3 +351,91 @@ mod tests {
         client.withdraw();
     }
 }
+
+#[test]
+#[should_panic(expected = "Campaign has ended")]
+fn test_donate_after_deadline() {
+    let (env, owner, client) = create_env();
+    let deadline = env.ledger().timestamp() + 100;
+    let donor = Address::generate(&env);
+
+    client.initialize(
+        &owner,
+        &String::from_str(&env, "Test"),
+        &String::from_str(&env, "Test desc"),
+        &100_000_000i128,
+        &deadline,
+    );
+
+    env.ledger().set(LedgerInfo {
+        timestamp: deadline + 1,
+        ..env.ledger().get()
+    });
+
+    client.donate(&donor, &50_000_000i128);
+}
+
+#[test]
+fn test_refund_after_failed_campaign() {
+    let (env, owner, client) = create_env();
+    let deadline = env.ledger().timestamp() + 100;
+    let donor = Address::generate(&env);
+
+    client.initialize(
+        &owner,
+        &String::from_str(&env, "Test"),
+        &String::from_str(&env, "Test desc"),
+        &100_000_000i128,
+        &deadline,
+    );
+
+    client.donate(&donor, &50_000_000i128);
+
+    env.ledger().set(LedgerInfo {
+        timestamp: deadline + 1,
+        ..env.ledger().get()
+    });
+
+    client.refund(&donor);
+    assert_eq!(client.get_donation(&donor), 0);
+}
+
+#[test]
+#[should_panic(expected = "Goal not yet reached")]
+fn test_withdraw_before_goal() {
+    let (env, owner, client) = create_env();
+    let deadline = env.ledger().timestamp() + 86400;
+    let donor = Address::generate(&env);
+
+    client.initialize(
+        &owner,
+        &String::from_str(&env, "Test"),
+        &String::from_str(&env, "Test desc"),
+        &100_000_000i128,
+        &deadline,
+    );
+
+    client.donate(&donor, &50_000_000i128);
+    client.withdraw();
+}
+
+#[test]
+fn test_multiple_donations_same_donor() {
+    let (env, owner, client) = create_env();
+    let deadline = env.ledger().timestamp() + 86400;
+    let donor = Address::generate(&env);
+
+    client.initialize(
+        &owner,
+        &String::from_str(&env, "Test"),
+        &String::from_str(&env, "Test desc"),
+        &100_000_000i128,
+        &deadline,
+    );
+
+    client.donate(&donor, &10_000_000i128);
+    client.donate(&donor, &20_000_000i128);
+    assert_eq!(client.get_donation(&donor), 30_000_000);
+    let campaign = client.get_campaign();
+    assert_eq!(campaign.donor_count, 1);
+}
