@@ -60,8 +60,13 @@ export function useContract() {
       const newEvents: DonationEvent[] = [];
       for (const ev of resp.events ?? []) {
         const topicStr = ev.topic.map((t: any) => {
-          try { return StellarSdk.scValToNative(t); } catch { return ""; }
+          try {
+            return StellarSdk.scValToNative(t);
+          } catch {
+            return "";
+          }
         });
+
         if (topicStr[0] === "donated") {
           try {
             const value = StellarSdk.scValToNative(ev.value);
@@ -160,7 +165,7 @@ export function useContract() {
 
   const fetchCampaign = useCallback(async () => {
     const now = Date.now();
-    if (campaignCacheRef.current && (now - campaignCacheRef.current.timestamp) < CACHE_TTL) {
+    if (campaignCacheRef.current && now - campaignCacheRef.current.timestamp < CACHE_TTL) {
       setCampaign(campaignCacheRef.current.data);
       setLoading(false);
       return;
@@ -266,16 +271,11 @@ export function useContract() {
         throw new Error(errMsg);
       }
 
-      const preparedTx = StellarSdk.rpc.assembleTransaction(
-        tx,
-        simResult
-      ).build();
-
+      const preparedTx = StellarSdk.rpc.assembleTransaction(tx, simResult).build();
       return preparedTx.toXDR();
     },
     []
   );
-
   useEffect(() => {
     fetchCampaign();
     const interval = setInterval(fetchCampaign, 5000);
@@ -290,7 +290,7 @@ export function useContract() {
     myDonation,
     fetchCampaign,
     fetchMyDonation,
-    fetchEvents: fetchEventsPoll, // expose polling jika diperlukan
+    fetchEvents: fetchEventsPoll,
     buildDonateXDR,
   };
 }
