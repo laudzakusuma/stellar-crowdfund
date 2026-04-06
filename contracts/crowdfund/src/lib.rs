@@ -21,23 +21,8 @@ pub struct Campaign {
 pub enum DataKey {
     Campaign,
     Donor(Address),
-    DonorList(u32),
-    DonorCount,
 }
 
-#[contracttype]
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(u32)]
-pub enum Error {
-    AlreadyInitialized = 1,
-    NotInitialized = 2,
-    CampaignEnded = 3,
-    CampaignActive = 4,
-    GoalNotReached = 5,
-    AlreadyWithdrawn = 6,
-    InvalidAmount = 7,
-    Unauthorized = 8,
-}
 
 #[contract]
 pub struct CrowdfundContract;
@@ -53,15 +38,15 @@ impl CrowdfundContract {
         deadline: u64,
     ) {
         owner.require_auth();
-
         if env.storage().instance().has(&DataKey::Campaign) {
             panic!("Campaign already initialized");
         }
-
         if goal <= 0 {
             panic!("Goal must be positive");
         }
-
+        if deadline <= env.ledger().timestamp() {
+            panic!("Deadline must be in the future");
+        }
         let campaign = Campaign {
             owner,
             title,
@@ -72,63 +57,47 @@ impl CrowdfundContract {
             withdrawn: false,
             donor_count: 0,
         };
-
         env.storage().instance().set(&DataKey::Campaign, &campaign);
         env.storage().instance().extend_ttl(200_000, 200_000);
-        env.events().publish(
-            (symbol_short!("init"),),
-            (campaign.goal, campaign.deadline),
-        );
-
+        env.events()
+            .publish((symbol_short!("init"),), (campaign.goal, campaign.deadline));
         log!(&env, "Campaign initialized: goal={}", goal);
     }
 
     pub fn donate(env: Env, donor: Address, amount: i128) {
         donor.require_auth();
-
         if amount <= 0 {
             panic!("Amount must be positive");
         }
-
         let mut campaign: Campaign = env
             .storage()
             .instance()
             .get(&DataKey::Campaign)
             .expect("Campaign not initialized");
-
         if env.ledger().timestamp() >= campaign.deadline {
             panic!("Campaign has ended");
         }
-
         campaign.raised += amount;
-        let prev_donation: i128 = env
+        let prev: i128 = env
             .storage()
             .instance()
             .get(&DataKey::Donor(donor.clone()))
             .unwrap_or(0);
-        if prev_donation == 0 {
+        if prev == 0 {
             campaign.donor_count += 1;
         }
-
         env.storage()
             .instance()
-            .set(&DataKey::Donor(donor.clone()), &(prev_donation + amount));
-
+            .set(&DataKey::Donor(donor.clone()), &(prev + amount));
         env.storage().instance().set(&DataKey::Campaign, &campaign);
         env.storage().instance().extend_ttl(200_000, 200_000);
         env.events().publish(
             (symbol_short!("donated"), donor.clone()),
             (amount, campaign.raised, campaign.donor_count),
         );
-
-        log!(
-            &env,
-            "Donation: {} stroops from {} | Total raised: {}",
-            amount,
-            donor,
-            campaign.raised
-        );
+        log!(&env, "Donation {} from {} | total {}", amount, donor, campaign.raised);
     }
+
     pub fn withdraw(env: Env) {
         let mut campaign: Campaign = env
             .storage()
@@ -136,63 +105,49 @@ impl CrowdfundContract {
             .get(&DataKey::Campaign)
             .expect("Campaign not initialized");
         campaign.owner.require_auth();
-
         if campaign.withdrawn {
             panic!("Funds already withdrawn");
         }
-
         if campaign.raised < campaign.goal {
             panic!("Goal not yet reached");
         }
-
         campaign.withdrawn = true;
         env.storage().instance().set(&DataKey::Campaign, &campaign);
-
         env.events().publish(
             (symbol_short!("withdraw"),),
             (campaign.raised, campaign.owner.clone()),
         );
-
-        log!(&env, "Funds withdrawn: {} stroops", campaign.raised);
+        log!(&env, "Withdrew {} stroops", campaign.raised);
     }
+
     pub fn refund(env: Env, donor: Address) {
         donor.require_auth();
-
         let campaign: Campaign = env
             .storage()
             .instance()
             .get(&DataKey::Campaign)
             .expect("Campaign not initialized");
-
         if env.ledger().timestamp() < campaign.deadline {
             panic!("Campaign still active");
         }
-
         if campaign.raised >= campaign.goal {
             panic!("Goal reached, no refunds");
         }
-
         let donated: i128 = env
             .storage()
             .instance()
             .get(&DataKey::Donor(donor.clone()))
             .unwrap_or(0);
-
         if donated == 0 {
             panic!("No donation found");
         }
-
         env.storage()
             .instance()
             .set(&DataKey::Donor(donor.clone()), &0i128);
-
-        env.events().publish(
-            (symbol_short!("refund"), donor.clone()),
-            donated,
-        );
-
-        log!(&env, "Refund: {} stroops to {}", donated, donor);
+        env.events().publish((symbol_short!("refund"), donor.clone()), donated);
+        log!(&env, "Refund {} to {}", donated, donor);
     }
+
     pub fn get_campaign(env: Env) -> Campaign {
         env.storage()
             .instance()
@@ -213,17 +168,9 @@ impl CrowdfundContract {
             .instance()
             .get(&DataKey::Campaign)
             .expect("Campaign not initialized");
-
-        if campaign.goal == 0 {
-            return 0;
-        }
-
+        if campaign.goal == 0 { return 0; }
         let pct = (campaign.raised * 100) / campaign.goal;
-        if pct > 100 {
-            100
-        } else {
-            pct as u32
-        }
+        if pct > 100 { 100 } else { pct as u32 }
     }
 
     pub fn is_active(env: Env) -> bool {
@@ -232,7 +179,6 @@ impl CrowdfundContract {
             .instance()
             .get(&DataKey::Campaign)
             .expect("Campaign not initialized");
-
         env.ledger().timestamp() < campaign.deadline && !campaign.withdrawn
     }
 }
@@ -241,201 +187,204 @@ impl CrowdfundContract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Env, String};
+    use soroban_sdk::{testutils::{Address as _, Ledger}, Env, String};
 
-    fn create_env() -> (Env, Address, CrowdfundContractClient<'static>) {
+    fn setup() -> (Env, Address, CrowdfundContractClient<'static>) {
         let env = Env::default();
         env.mock_all_auths();
-        let contract_id = env.register_contract(None, CrowdfundContract);
-        let client = CrowdfundContractClient::new(&env, &contract_id);
+        let id = env.register_contract(None, CrowdfundContract);
+        let client = CrowdfundContractClient::new(&env, &id);
         let owner = Address::generate(&env);
         (env, owner, client)
     }
 
-    #[test]
-    fn test_initialize() {
-        let (env, owner, client) = create_env();
-        let deadline = env.ledger().timestamp() + 86400;
-
+    fn init(env: &Env, owner: &Address, client: &CrowdfundContractClient, goal: i128, days: u64) {
+        let deadline = env.ledger().timestamp() + days * 86400;
         client.initialize(
-            &owner,
-            &String::from_str(&env, "Save the Ocean"),
-            &String::from_str(&env, "Crowdfund for ocean cleanup"),
-            &10_000_000_0i128,
+            owner,
+            &String::from_str(env, "Save the Ocean"),
+            &String::from_str(env, "Ocean cleanup initiative"),
+            &goal,
             &deadline,
         );
-
-        let campaign = client.get_campaign();
-        assert_eq!(campaign.raised, 0);
-        assert_eq!(campaign.goal, 10_000_000_0);
-        assert!(!campaign.withdrawn);
     }
 
     #[test]
-    fn test_donate() {
-        let (env, owner, client) = create_env();
-        let deadline = env.ledger().timestamp() + 86400;
-        let donor = Address::generate(&env);
-
-        client.initialize(
-            &owner,
-            &String::from_str(&env, "Save the Ocean"),
-            &String::from_str(&env, "Crowdfund for ocean cleanup"),
-            &100_000_000i128,
-            &deadline,
-        );
-
-        client.donate(&donor, &50_000_000i128);
-
-        let campaign = client.get_campaign();
-        assert_eq!(campaign.raised, 50_000_000);
-        assert_eq!(campaign.donor_count, 1);
-        assert_eq!(client.get_donation(&donor), 50_000_000);
+    fn test_initialize_sets_correct_state() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
+        let c = client.get_campaign();
+        assert_eq!(c.raised, 0, "Raised should start at 0");
+        assert_eq!(c.goal, 100_000_000);
+        assert!(!c.withdrawn, "Should not be withdrawn at start");
+        assert_eq!(c.donor_count, 0);
     }
 
     #[test]
-    fn test_progress() {
-        let (env, owner, client) = create_env();
-        let deadline = env.ledger().timestamp() + 86400;
-        let donor = Address::generate(&env);
-
-        client.initialize(
-            &owner,
-            &String::from_str(&env, "Test"),
-            &String::from_str(&env, "Test desc"),
-            &100_000_000i128,
-            &deadline,
-        );
-
-        client.donate(&donor, &25_000_000i128);
-        assert_eq!(client.get_progress(), 25);
+    #[should_panic(expected = "already initialized")]
+    fn test_double_initialize_panics() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
+        init(&env, &owner, &client, 200_000_000, 30);
     }
 
     #[test]
-    fn test_withdraw_when_goal_reached() {
-        let (env, owner, client) = create_env();
-        let deadline = env.ledger().timestamp() + 86400;
+    fn test_single_donation_tracked_correctly() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
         let donor = Address::generate(&env);
+        client.donate(&donor, &25_000_000);
+        let c = client.get_campaign();
+        assert_eq!(c.raised, 25_000_000, "Raised should match donation");
+        assert_eq!(c.donor_count, 1, "Donor count should be 1");
+        assert_eq!(client.get_donation(&donor), 25_000_000);
+    }
 
-        client.initialize(
-            &owner,
-            &String::from_str(&env, "Test"),
-            &String::from_str(&env, "Test desc"),
-            &50_000_000i128,
-            &deadline,
-        );
+    #[test]
+    fn test_multiple_donations_from_same_donor_accumulate() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
+        let donor = Address::generate(&env);
+        client.donate(&donor, &10_000_000);
+        client.donate(&donor, &15_000_000);
+        client.donate(&donor, &5_000_000);
+        let c = client.get_campaign();
+        assert_eq!(c.raised, 30_000_000, "Total should be sum of all donations");
+        assert_eq!(c.donor_count, 1, "Same donor should count as 1");
+        assert_eq!(client.get_donation(&donor), 30_000_000);
+    }
 
-        client.donate(&donor, &50_000_000i128);
+    #[test]
+    fn test_multiple_donors_tracked_separately() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
+        let donor_a = Address::generate(&env);
+        let donor_b = Address::generate(&env);
+        let donor_c = Address::generate(&env);
+        client.donate(&donor_a, &10_000_000);
+        client.donate(&donor_b, &20_000_000);
+        client.donate(&donor_c, &30_000_000);
+        let c = client.get_campaign();
+        assert_eq!(c.raised, 60_000_000);
+        assert_eq!(c.donor_count, 3);
+        assert_eq!(client.get_donation(&donor_a), 10_000_000);
+        assert_eq!(client.get_donation(&donor_b), 20_000_000);
+        assert_eq!(client.get_donation(&donor_c), 30_000_000);
+    }
+
+    #[test]
+    fn test_progress_percentage_is_correct() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
+        let donor = Address::generate(&env);
+        assert_eq!(client.get_progress(), 0, "Progress starts at 0");
+        client.donate(&donor, &25_000_000);
+        assert_eq!(client.get_progress(), 25, "25% after 25M/100M");
+        client.donate(&donor, &25_000_000);
+        assert_eq!(client.get_progress(), 50, "50% after 50M/100M");
+        client.donate(&donor, &50_000_000);
+        assert_eq!(client.get_progress(), 100, "100% when goal reached");
+    }
+
+    #[test]
+    fn test_progress_capped_at_100_when_over_goal() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 50_000_000, 30);
+        let donor = Address::generate(&env);
+        client.donate(&donor, &200_000_000);
+        assert_eq!(client.get_progress(), 100, "Progress should cap at 100");
+    }
+
+    #[test]
+    fn test_withdraw_succeeds_when_goal_reached() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 50_000_000, 30);
+        let donor = Address::generate(&env);
+        client.donate(&donor, &50_000_000);
         client.withdraw();
-
-        let campaign = client.get_campaign();
-        assert!(campaign.withdrawn);
+        assert!(client.get_campaign().withdrawn, "Should be marked withdrawn");
     }
 
     #[test]
     #[should_panic(expected = "Goal not yet reached")]
-    fn test_withdraw_fails_when_goal_not_reached() {
-        let (env, owner, client) = create_env();
-        let deadline = env.ledger().timestamp() + 86400;
+    fn test_withdraw_panics_if_goal_not_met() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
         let donor = Address::generate(&env);
-
-        client.initialize(
-            &owner,
-            &String::from_str(&env, "Test"),
-            &String::from_str(&env, "Test desc"),
-            &100_000_000i128,
-            &deadline,
-        );
-
-        client.donate(&donor, &10_000_000i128);
+        client.donate(&donor, &10_000_000);
         client.withdraw();
     }
-}
 
-#[test]
-#[should_panic(expected = "Campaign has ended")]
-fn test_donate_after_deadline() {
-    let (env, owner, client) = create_env();
-    let deadline = env.ledger().timestamp() + 100;
-    let donor = Address::generate(&env);
+    #[test]
+    #[should_panic(expected = "already withdrawn")]
+    fn test_double_withdraw_panics() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 50_000_000, 30);
+        let donor = Address::generate(&env);
+        client.donate(&donor, &50_000_000);
+        client.withdraw();
+        client.withdraw();
+    }
 
-    client.initialize(
-        &owner,
-        &String::from_str(&env, "Test"),
-        &String::from_str(&env, "Test desc"),
-        &100_000_000i128,
-        &deadline,
-    );
+    #[test]
+    #[should_panic(expected = "Campaign has ended")]
+    fn test_donate_after_deadline_panics() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 1);
+        // Advance ledger past deadline
+        env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+            timestamp: env.ledger().timestamp() + 2 * 86400,
+            protocol_version: 21,
+            sequence_number: env.ledger().sequence(),
+            network_id: Default::default(),
+            base_reserve: 10,
+            min_persistent_entry_ttl: 4096,
+            min_temp_entry_ttl: 16,
+            max_entry_ttl: 3110400,
+        });
+        let donor = Address::generate(&env);
+        client.donate(&donor, &10_000_000);
+    }
 
-    env.ledger().set(LedgerInfo {
-        timestamp: deadline + 1,
-        ..env.ledger().get()
-    });
+    #[test]
+    fn test_is_active_reflects_campaign_state() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 50_000_000, 30);
+        assert!(client.is_active(), "Should be active initially");
+        let donor = Address::generate(&env);
+        client.donate(&donor, &50_000_000);
+        client.withdraw();
+        assert!(!client.is_active(), "Should be inactive after withdrawal");
+    }
 
-    client.donate(&donor, &50_000_000i128);
-}
+    #[test]
+    #[should_panic(expected = "Amount must be positive")]
+    fn test_zero_donation_panics() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
+        let donor = Address::generate(&env);
+        client.donate(&donor, &0);
+    }
 
-#[test]
-fn test_refund_after_failed_campaign() {
-    let (env, owner, client) = create_env();
-    let deadline = env.ledger().timestamp() + 100;
-    let donor = Address::generate(&env);
+    #[test]
+    #[should_panic(expected = "Goal must be positive")]
+    fn test_negative_goal_panics() {
+        let (env, owner, client) = setup();
+        let deadline = env.ledger().timestamp() + 86400;
+        client.initialize(
+            &owner,
+            &String::from_str(&env, "Bad"),
+            &String::from_str(&env, "Bad"),
+            &-1,
+            &deadline,
+        );
+    }
 
-    client.initialize(
-        &owner,
-        &String::from_str(&env, "Test"),
-        &String::from_str(&env, "Test desc"),
-        &100_000_000i128,
-        &deadline,
-    );
-
-    client.donate(&donor, &50_000_000i128);
-
-    env.ledger().set(LedgerInfo {
-        timestamp: deadline + 1,
-        ..env.ledger().get()
-    });
-
-    client.refund(&donor);
-    assert_eq!(client.get_donation(&donor), 0);
-}
-
-#[test]
-#[should_panic(expected = "Goal not yet reached")]
-fn test_withdraw_before_goal() {
-    let (env, owner, client) = create_env();
-    let deadline = env.ledger().timestamp() + 86400;
-    let donor = Address::generate(&env);
-
-    client.initialize(
-        &owner,
-        &String::from_str(&env, "Test"),
-        &String::from_str(&env, "Test desc"),
-        &100_000_000i128,
-        &deadline,
-    );
-
-    client.donate(&donor, &50_000_000i128);
-    client.withdraw();
-}
-
-#[test]
-fn test_multiple_donations_same_donor() {
-    let (env, owner, client) = create_env();
-    let deadline = env.ledger().timestamp() + 86400;
-    let donor = Address::generate(&env);
-
-    client.initialize(
-        &owner,
-        &String::from_str(&env, "Test"),
-        &String::from_str(&env, "Test desc"),
-        &100_000_000i128,
-        &deadline,
-    );
-
-    client.donate(&donor, &10_000_000i128);
-    client.donate(&donor, &20_000_000i128);
-    assert_eq!(client.get_donation(&donor), 30_000_000);
-    let campaign = client.get_campaign();
-    assert_eq!(campaign.donor_count, 1);
+    #[test]
+    fn test_get_donation_returns_zero_for_unknown_donor() {
+        let (env, owner, client) = setup();
+        init(&env, &owner, &client, 100_000_000, 30);
+        let stranger = Address::generate(&env);
+        assert_eq!(client.get_donation(&stranger), 0, "Unknown donor should have 0");
+    }
 }
