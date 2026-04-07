@@ -5,7 +5,7 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 
 const CONTRACT_ID =
   process.env.NEXT_PUBLIC_CONTRACT_ID ||
-  "CC243UG6CXHGBEVO7JNWGHQ4OHAI55LARL5XZB7H6DTXVYFX33P6NW6C";
+  "CBCYFVAVRA3PSMY7TIAXQAWWYZX5MGM5OKGPJB33EHXY3POQ5K4674R4";
 const RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC || "https://soroban-testnet.stellar.org";
 

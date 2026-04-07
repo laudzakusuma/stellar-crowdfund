@@ -1,0 +1,1 @@
+// Types are provided by @testing-library/jest-dom/vitest imported in setup.ts

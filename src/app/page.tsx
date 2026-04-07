@@ -16,7 +16,7 @@ import {
 
 const CONTRACT_ID =
   process.env.NEXT_PUBLIC_CONTRACT_ID ||
-  "CC243UG6CXHGBEVO7JNWGHQ4OHAI55LARL5XZB7H6DTXVYFX33P6NW6C";
+  "CBCYFVAVRA3PSMY7TIAXQAWWYZX5MGM5OKGPJB33EHXY3POQ5K4674R4";
 
 function Starfield() {
   return (
@@ -116,7 +116,7 @@ export default function Home() {
 
   const isNotDefaultContract =
     CONTRACT_ID !==
-    "CC243UG6CXHGBEVO7JNWGHQ4OHAI55LARL5XZB7H6DTXVYFX33P6NW6C";
+    "CBCYFVAVRA3PSMY7TIAXQAWWYZX5MGM5OKGPJB33EHXY3POQ5K4674R4";
   const campaignExpired =
     contract.campaign && Number(contract.campaign.deadline) < Date.now() / 1000;
 
