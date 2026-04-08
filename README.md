@@ -33,6 +33,10 @@ The application is deployed on Stellar Testnet and fully integrated with a Sorob
 
 ## Screenshots
 
+### Main Interface
+![Main Interface](./docs/screenshots/main-interface.png)
+> Halaman utama crowdfund dengan tombol Connect Wallet dan status testnet.
+
 ### Wallet Options
 ![Wallets](./docs/screenshots/wallets.png)
 > Wallet Options
@@ -41,9 +45,9 @@ The application is deployed on Stellar Testnet and fully integrated with a Sorob
 ![Campaign](./docs/screenshots/campaign.png)
 > Real-time fundraising progress bar, backed by Soroban smart contract
 
-### Main Interface
-![Main Interface](./docs/screenshots/main-interface.png)
-> Halaman utama crowdfund dengan tombol Connect Wallet dan status testnet.
+### Test Output
+![Tests](./docs/screenshots/tests.png)
+> 4 Tests Passed !!
 
 ---
 
