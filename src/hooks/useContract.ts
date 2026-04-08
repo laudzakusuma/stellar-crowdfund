@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import * as StellarSdk from "@stellar/stellar-sdk";
+import {
+  campaignCache,
+  donationCache,
+  eventsCache,
+  createCacheKey,
+} from "@/lib/cache";
 
 const CONTRACT_ID =
   process.env.NEXT_PUBLIC_CONTRACT_ID ||
@@ -10,7 +16,7 @@ const RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC || "https://soroban-testnet.stellar.org";
 
 const READ_ONLY_ACCOUNT =
-  "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN";
+  "GAKXVPOXZEM2BFZ7FIISOO2PKQ437QH2TIRBH6A5YCAOQESTQHKGV2MJ";
 
 export interface Campaign {
   title: string;
@@ -38,13 +44,119 @@ export function useContract() {
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<DonationEvent[]>([]);
   const [myDonation, setMyDonation] = useState<bigint>(0n);
+  const [isFetching, setIsFetching] = useState(false);
   const lastLedgerRef = useRef<number>(0);
+
   const server = new StellarSdk.rpc.Server(RPC_URL);
-  const campaignCacheRef = useRef<{ data: Campaign; timestamp: number } | null>(null);
-  const CACHE_TTL = 5000; // 5 detik
-  const wsRef = useRef<WebSocket | null>(null);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const fetchEventsPoll = useCallback(async () => {
+  const CAMPAIGN_KEY = createCacheKey("campaign", CONTRACT_ID);
+
+  const invalidateCache = useCallback((donorAddress?: string) => {
+    campaignCache.delete(CAMPAIGN_KEY);
+    eventsCache.delete(createCacheKey("events", CONTRACT_ID));
+    if (donorAddress) {
+      donationCache.delete(createCacheKey("donor", CONTRACT_ID, donorAddress));
+    }
+  }, [CAMPAIGN_KEY]);
+
+  const fetchCampaign = useCallback(async (forceRefresh = false) => {
+    if (!forceRefresh) {
+      const cached = campaignCache.get(CAMPAIGN_KEY) as Campaign | null;
+      if (cached) {
+        setCampaign(cached);
+        setLoading(false);
+        return;
+      }
+    }
+
+    setIsFetching(true);
+    try {
+      const contract = new StellarSdk.Contract(CONTRACT_ID);
+      const account = await server.getAccount(READ_ONLY_ACCOUNT);
+      const tx = new StellarSdk.TransactionBuilder(account, {
+        fee: "100",
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      })
+        .addOperation(contract.call("get_campaign"))
+        .setTimeout(30)
+        .build();
+
+      const simResult = await server.simulateTransaction(tx);
+      if (StellarSdk.rpc.Api.isSimulationSuccess(simResult)) {
+        const raw = StellarSdk.scValToNative(simResult.result!.retval);
+        const data: Campaign = {
+          title: raw.title || "Stellar Crowdfund Campaign",
+          description: raw.description || "",
+          goal: BigInt(raw.goal ?? 0),
+          raised: BigInt(raw.raised ?? 0),
+          deadline: BigInt(raw.deadline ?? 0),
+          owner: raw.owner || "",
+          withdrawn: Boolean(raw.withdrawn),
+          donor_count: Number(raw.donor_count ?? 0),
+        };
+        campaignCache.set(CAMPAIGN_KEY, data);
+        setCampaign(data);
+        setError(null);
+      }
+    } catch (err: any) {
+      if (
+        err?.message?.includes("not initialized") ||
+        err?.message?.includes("MissingValue")
+      ) {
+        setError("Contract not initialized. Deploy and initialize first.");
+      } else {
+        console.error("fetchCampaign:", err);
+        setError("Failed to load campaign data.");
+      }
+    } finally {
+      setLoading(false);
+      setIsFetching(false);
+    }
+  }, []);
+
+  const fetchMyDonation = useCallback(async (address: string) => {
+    const key = createCacheKey("donor", CONTRACT_ID, address);
+    const cached = donationCache.get(key);
+    if (cached !== null) {
+      setMyDonation(cached);
+      return;
+    }
+
+    try {
+      const contract = new StellarSdk.Contract(CONTRACT_ID);
+      const account = await server.getAccount(READ_ONLY_ACCOUNT);
+      const tx = new StellarSdk.TransactionBuilder(account, {
+        fee: "100",
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      })
+        .addOperation(
+          contract.call(
+            "get_donation",
+            StellarSdk.nativeToScVal(address, { type: "address" })
+          )
+        )
+        .setTimeout(30)
+        .build();
+
+      const simResult = await server.simulateTransaction(tx);
+      if (StellarSdk.rpc.Api.isSimulationSuccess(simResult)) {
+        const val = BigInt(
+          StellarSdk.scValToNative(simResult.result!.retval) ?? 0
+        );
+        donationCache.set(key, val);
+        setMyDonation(val);
+      }
+    } catch (err) {
+      console.error("fetchMyDonation:", err);
+    }
+  }, []);
+
+  const fetchEvents = useCallback(async () => {
+    const EVENTS_KEY = createCacheKey("events", CONTRACT_ID);
+    const cached = eventsCache.get(EVENTS_KEY);
+    if (cached && (cached as any[]).length > 0) {
+      setEvents(cached as DonationEvent[]);
+    }
+
     try {
       const ledgerResp = await server.getLatestLedger();
       const currentLedger = ledgerResp.sequence;
@@ -60,13 +172,8 @@ export function useContract() {
       const newEvents: DonationEvent[] = [];
       for (const ev of resp.events ?? []) {
         const topicStr = ev.topic.map((t: any) => {
-          try {
-            return StellarSdk.scValToNative(t);
-          } catch {
-            return "";
-          }
+          try { return StellarSdk.scValToNative(t); } catch { return ""; }
         });
-
         if (topicStr[0] === "donated") {
           try {
             const value = StellarSdk.scValToNative(ev.value);
@@ -86,158 +193,14 @@ export function useContract() {
         setEvents((prev) => {
           const existingIds = new Set(prev.map((e) => e.id));
           const unique = newEvents.filter((e) => !existingIds.has(e.id));
-          return [...unique, ...prev].slice(0, 20);
+          const merged = [...unique, ...prev].slice(0, 20);
+          eventsCache.set(EVENTS_KEY, merged);
+          return merged;
         });
         lastLedgerRef.current = currentLedger;
       }
     } catch (err) {
-      console.error("fetchEventsPoll:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    const setupWebSocket = () => {
-      const wsUrl = RPC_URL.replace("https", "wss");
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log("WebSocket connected");
-        const subscribeMsg = {
-          jsonrpc: "2.0",
-          id: 1,
-          method: "subscribe",
-          params: { eventType: "contract", contractIds: [CONTRACT_ID] },
-        };
-        ws.send(JSON.stringify(subscribeMsg));
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.method === "event") {
-            const ev = data.params;
-            const newEvent: DonationEvent = {
-              id: ev.id,
-              donor: ev.topic[1] || "Unknown",
-              amount: BigInt(ev.value?.amount || 0),
-              total_raised: BigInt(ev.value?.total_raised || 0),
-              ledger: ev.ledger,
-              timestamp: Date.now(),
-            };
-            setEvents((prev) => [newEvent, ...prev].slice(0, 20));
-            if (ev.ledger > lastLedgerRef.current) lastLedgerRef.current = ev.ledger;
-          }
-        } catch (err) {
-          console.error("WebSocket message error", err);
-        }
-      };
-
-      ws.onerror = (err) => {
-        console.error("WebSocket error, falling back to polling", err);
-        ws.close();
-        wsRef.current = null;
-        if (!pollIntervalRef.current) {
-          pollIntervalRef.current = setInterval(fetchEventsPoll, 8000);
-        }
-      };
-
-      ws.onclose = () => {
-        console.log("WebSocket closed, switching to polling");
-        if (wsRef.current === ws) wsRef.current = null;
-        if (!pollIntervalRef.current) {
-          pollIntervalRef.current = setInterval(fetchEventsPoll, 8000);
-        }
-      };
-    };
-
-    setupWebSocket();
-
-    return () => {
-      if (wsRef.current) wsRef.current.close();
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, [fetchEventsPoll]);
-
-  const fetchCampaign = useCallback(async () => {
-    const now = Date.now();
-    if (campaignCacheRef.current && now - campaignCacheRef.current.timestamp < CACHE_TTL) {
-      setCampaign(campaignCacheRef.current.data);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const contract = new StellarSdk.Contract(CONTRACT_ID);
-      const account = await server.getAccount(READ_ONLY_ACCOUNT);
-
-      const tx = new StellarSdk.TransactionBuilder(account, {
-        fee: "100",
-        networkPassphrase: StellarSdk.Networks.TESTNET,
-      })
-        .addOperation(contract.call("get_campaign"))
-        .setTimeout(30)
-        .build();
-
-      const simResult = await server.simulateTransaction(tx);
-
-      if (StellarSdk.rpc.Api.isSimulationSuccess(simResult)) {
-        const raw = StellarSdk.scValToNative(simResult.result!.retval);
-        const campaignData = {
-          title: raw.title || "Stellar Crowdfund Campaign",
-          description: raw.description || "",
-          goal: BigInt(raw.goal ?? 0),
-          raised: BigInt(raw.raised ?? 0),
-          deadline: BigInt(raw.deadline ?? 0),
-          owner: raw.owner || "",
-          withdrawn: Boolean(raw.withdrawn),
-          donor_count: Number(raw.donor_count ?? 0),
-        };
-        campaignCacheRef.current = { data: campaignData, timestamp: now };
-        setCampaign(campaignData);
-        setError(null);
-      }
-    } catch (err: any) {
-      if (err?.message?.includes("not initialized") || err?.message?.includes("MissingValue")) {
-        setError("Contract not initialized. Please deploy and initialize the contract first.");
-      } else {
-        console.error("fetchCampaign:", err);
-        setError("Failed to load campaign data.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchMyDonation = useCallback(async (address: string) => {
-    try {
-      const contract = new StellarSdk.Contract(CONTRACT_ID);
-      const account = await server.getAccount(READ_ONLY_ACCOUNT);
-
-      const tx = new StellarSdk.TransactionBuilder(account, {
-        fee: "100",
-        networkPassphrase: StellarSdk.Networks.TESTNET,
-      })
-        .addOperation(
-          contract.call(
-            "get_donation",
-            StellarSdk.nativeToScVal(address, { type: "address" })
-          )
-        )
-        .setTimeout(30)
-        .build();
-
-      const simResult = await server.simulateTransaction(tx);
-      if (StellarSdk.rpc.Api.isSimulationSuccess(simResult)) {
-        const val = StellarSdk.scValToNative(simResult.result!.retval);
-        setMyDonation(BigInt(val ?? 0));
-      }
-    } catch (err) {
-      console.error("fetchMyDonation:", err);
+      console.error("fetchEvents:", err);
     }
   }, []);
 
@@ -262,25 +225,33 @@ export function useContract() {
         .build();
 
       const simResult = await server.simulateTransaction(tx);
-
       if (!StellarSdk.rpc.Api.isSimulationSuccess(simResult)) {
         const errMsg = (simResult as any).error || "Simulation failed";
-        if (errMsg.toLowerCase().includes("insufficient")) {
+        if (errMsg.toLowerCase().includes("insufficient"))
           throw new Error("insufficient_balance");
-        }
         throw new Error(errMsg);
       }
 
-      const preparedTx = StellarSdk.rpc.assembleTransaction(tx, simResult).build();
+      const preparedTx = StellarSdk.rpc.assembleTransaction(
+        tx,
+        simResult
+      ).build();
       return preparedTx.toXDR();
     },
     []
   );
+
   useEffect(() => {
     fetchCampaign();
-    const interval = setInterval(fetchCampaign, 5000);
+    const interval = setInterval(() => fetchCampaign(true), 5000);
     return () => clearInterval(interval);
   }, [fetchCampaign]);
+
+  useEffect(() => {
+    fetchEvents();
+    const interval = setInterval(fetchEvents, 8000);
+    return () => clearInterval(interval);
+  }, [fetchEvents]);
 
   return {
     campaign,
@@ -288,9 +259,11 @@ export function useContract() {
     error,
     events,
     myDonation,
+    isFetching,
     fetchCampaign,
     fetchMyDonation,
-    fetchEvents: fetchEventsPoll,
+    fetchEvents,
     buildDonateXDR,
+    invalidateCache,
   };
 }

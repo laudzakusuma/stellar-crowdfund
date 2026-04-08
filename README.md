@@ -11,6 +11,10 @@
 
 ## Screenshots
 
+### Wallet Options
+![Wallets](./docs/screenshots/wallets.png)
+> Wallet Options
+
 ### Campaign Progress
 ![Campaign](./docs/screenshots/campaign.png)
 > Real-time fundraising progress bar, backed by Soroban smart contract

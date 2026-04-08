@@ -1,9 +1,20 @@
-# Screenshots
+# Required Screenshots for Submission
 
-After you run the app, take screenshots of:
+After running the app, take and save these screenshots here:
 
-1. **wallets.png** — The wallet selection modal showing all wallet options (Freighter, Albedo, xBull, etc.)
-2. **campaign.png** — The campaign card showing the progress bar and stats
-3. **tx-status.png** — A transaction in pending/success state with explorer link
+1. **wallets.png**
+   - Click "Connect Wallet" → capture the multi-wallet selection modal
+   - Shows: Freighter, Albedo, xBull, Lobstr options
 
-These are required for your submission README.
+2. **campaign.png**
+   - Capture the campaign card showing progress bar and stats
+   - Bonus: capture the skeleton loader state too
+
+3. **tests.png** ← MOST IMPORTANT for Level 3
+   - Run `npm test` in your terminal
+   - Screenshot the output showing all tests PASSING
+   - Should show "35 passed" (or similar)
+
+4. **tx-status.png**
+   - Make a donation and screenshot the pending → success banner
+   - Should show the Stellar Expert explorer link
