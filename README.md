@@ -11,8 +11,13 @@
 
 ## Demo Video
 
-<video src="./docs/STELLAR-CROWDFUND-SUBMISSION.mov" controls width="600"/>
-> This video demonstrates the full functionality of the Stellar Crowdfund dApp, including:
+Click the image below to watch the full demo:
+
+[![Demo Video](./docs/screenshots/main-interface.png)](https://www.loom.com/share/YOUR_VIDEO_ID)
+
+### Description
+
+This video demonstrates the full functionality of the Stellar Crowdfund dApp, including:
 
 - Multi-wallet connection (Freighter, Albedo, etc.)
 - Real-time campaign data from Soroban smart contract
@@ -21,6 +26,10 @@
 - Live event updates and progress tracking
 
 The application is deployed on Stellar Testnet and fully integrated with a Soroban smart contract.
+
+---
+
+---
 
 ## Screenshots
 
