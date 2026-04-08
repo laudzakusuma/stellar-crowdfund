@@ -13,7 +13,7 @@
 
 Click the image below to watch the full demo:
 
-[![Demo Video](./docs/screenshots/main-interface.png)](https://www.loom.com/share/YOUR_VIDEO_ID)
+[![Demo Video](./docs/screenshots/stellar-crowdfund-logo.png)](https://youtu.be/8IZzT-qInBA)
 
 ### Description
 
