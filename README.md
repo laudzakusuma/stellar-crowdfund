@@ -9,6 +9,19 @@
 
 ---
 
+## Demo Video
+
+<video src="./docs/STELLAR-CROWDFUND-SUBMISSION.mov" controls width="600"/>
+> This video demonstrates the full functionality of the Stellar Crowdfund dApp, including:
+
+- Multi-wallet connection (Freighter, Albedo, etc.)
+- Real-time campaign data from Soroban smart contract
+- Donation flow with transaction status tracking
+- Error handling (wallet not found, rejected, insufficient balance)
+- Live event updates and progress tracking
+
+The application is deployed on Stellar Testnet and fully integrated with a Soroban smart contract.
+
 ## Screenshots
 
 ### Wallet Options
