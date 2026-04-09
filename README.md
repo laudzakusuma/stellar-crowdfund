@@ -29,8 +29,6 @@ The application is deployed on Stellar Testnet and fully integrated with a Sorob
 
 ---
 
----
-
 ## Screenshots
 
 ### Main Interface
