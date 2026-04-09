@@ -54,18 +54,6 @@ The application is deployed on Stellar Testnet and fully integrated with a Sorob
 
 ---
 
-## Level 2 Requirements Checklist
-
-| Requirement | Status | Notes |
-|---|---|---|
-| 3 error types handled | ✅ | `WALLET_NOT_FOUND`, `USER_REJECTED`, `INSUFFICIENT_BALANCE` |
-| Contract deployed on testnet | ✅ | See contract address below |
-| Contract called from frontend | ✅ | `donate()`, `get_campaign()`, `get_donation()` |
-| Transaction status visible | ✅ | Pending / Success / Error banner with Explorer link |
-| 2+ meaningful commits | ✅ | See git log |
-
----
-
 ## Smart Contract
 
 **Contract ID:** `CCTPQORDKR2EXUR6BOBTA7UXM7NSPP3MRI7BXSNTOWF5F5KQ2ZALCQZR`
