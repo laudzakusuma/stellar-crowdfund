@@ -9,6 +9,11 @@
 
 ---
 
+## LIVE DEMO
+https://stellar-crowdfund-seven.vercel.app
+
+---
+
 ## Demo Video
 
 Click the image below to watch the full demo:
