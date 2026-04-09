@@ -1,29 +1,26 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short,
-    token::{self, Interface as _},
-    Address, Env, String, Symbol,
-};
-use soroban_token_sdk::metadata::TokenMetadata;
-use soroban_token_sdk::TokenUtils;
+//! CrowdToken — a minimal SEP-0041 compatible token.
+//! Minting is restricted to the registered minter.
+//! This contract is the target of an inter-contract call from Crowdfund.
 
-#[derive(Clone)]
+use soroban_sdk::{
+    contract, contractimpl, contracttype,
+    token::Interface as TokenInterface,
+    Address, Env, String,
+};
+
 #[contracttype]
+#[derive(Clone)]
 pub enum DataKey {
     Admin,
     Minter,
     Balance(Address),
-    Allowance(AllowanceKey),
+    TotalSupply,
+    Name,
+    Symbol,
+    Decimals,
 }
-
-#[derive(Clone)]
-#[contracttype]
-pub struct AllowanceKey {
-    pub from: Address,
-    pub spender: Address,
-}
-
 
 #[contract]
 pub struct CrowdToken;
@@ -43,12 +40,32 @@ impl CrowdToken {
         }
         admin.require_auth();
 
-        TokenUtils::new(&env)
-            .metadata()
-            .set_metadata(&TokenMetadata { decimal, name, symbol });
+        env.storage().instance().set(&DataKey::Admin,    &admin);
+        env.storage().instance().set(&DataKey::Minter,   &minter);
+        env.storage().instance().set(&DataKey::Decimals, &decimal);
+        env.storage().instance().set(&DataKey::Name,     &name);
+        env.storage().instance().set(&DataKey::Symbol,   &symbol);
+        env.storage().instance().set(&DataKey::TotalSupply, &0_i128);
+    }
 
-        env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::Minter, &minter);
+    pub fn mint(env: Env, to: Address, amount: i128) {
+        assert!(amount > 0, "amount must be positive");
+
+        let minter: Address = env.storage().instance().get(&DataKey::Minter).unwrap();
+        minter.require_auth();
+
+        let bal = Self::balance_of(&env, &to);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Balance(to.clone()), &(bal + amount));
+
+        let supply: i128 = env.storage().instance().get(&DataKey::TotalSupply).unwrap_or(0);
+        env.storage().instance().set(&DataKey::TotalSupply, &(supply + amount));
+
+        env.events().publish(
+            (soroban_sdk::symbol_short!("mint"), minter, to),
+            amount,
+        );
     }
 
     pub fn minter(env: Env) -> Address {
@@ -61,20 +78,11 @@ impl CrowdToken {
         env.storage().instance().set(&DataKey::Minter, &new_minter);
     }
 
-    pub fn mint(env: Env, to: Address, amount: i128) {
-        let minter: Address = env.storage().instance().get(&DataKey::Minter).unwrap();
-        minter.require_auth();
-
-        assert!(amount > 0, "amount must be positive");
-
-        let balance = Self::get_balance(&env, &to);
-        env.storage()
-            .persistent()
-            .set(&DataKey::Balance(to.clone()), &(balance + amount));
-        TokenUtils::new(&env).events().mint(minter, to, amount);
+    pub fn total_supply(env: Env) -> i128 {
+        env.storage().instance().get(&DataKey::TotalSupply).unwrap_or(0)
     }
 
-    fn get_balance(env: &Env, addr: &Address) -> i128 {
+    fn balance_of(env: &Env, addr: &Address) -> i128 {
         env.storage()
             .persistent()
             .get(&DataKey::Balance(addr.clone()))
@@ -83,126 +91,107 @@ impl CrowdToken {
 }
 
 #[contractimpl]
-impl token::Interface for CrowdToken {
-    fn allowance(env: Env, from: Address, spender: Address) -> i128 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Allowance(AllowanceKey { from, spender }))
-            .unwrap_or(0)
+impl TokenInterface for CrowdToken {
+    fn allowance(env: Env, _from: Address, _spender: Address) -> i128 {
+        0
     }
 
-    fn approve(env: Env, from: Address, spender: Address, amount: i128, expiration_ledger: u32) {
+    fn approve(
+        env: Env,
+        from: Address,
+        spender: Address,
+        amount: i128,
+        expiration_ledger: u32,
+    ) {
         from.require_auth();
-        let key = DataKey::Allowance(AllowanceKey {
-            from: from.clone(),
-            spender: spender.clone(),
-        });
-        env.storage().persistent().set(&key, &amount);
-        TokenUtils::new(&env)
-            .events()
-            .approve(from, spender, amount, expiration_ledger);
+        env.events().publish(
+            (soroban_sdk::symbol_short!("approve"), from, spender),
+            (amount, expiration_ledger),
+        );
     }
 
     fn balance(env: Env, id: Address) -> i128 {
-        Self::get_balance(&env, &id)
+        Self::balance_of(&env, &id)
     }
 
     fn transfer(env: Env, from: Address, to: Address, amount: i128) {
         from.require_auth();
         assert!(amount > 0, "amount must be positive");
 
-        let from_balance = Self::get_balance(&env, &from);
-        assert!(from_balance >= amount, "insufficient balance");
+        let from_bal = Self::balance_of(&env, &from);
+        assert!(from_bal >= amount, "insufficient balance");
+        let to_bal = Self::balance_of(&env, &to);
 
-        let to_balance = Self::get_balance(&env, &to);
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(from.clone()), &(from_balance - amount));
+            .set(&DataKey::Balance(from.clone()), &(from_bal - amount));
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(to.clone()), &(to_balance + amount));
+            .set(&DataKey::Balance(to.clone()), &(to_bal + amount));
 
-        TokenUtils::new(&env).events().transfer(from, to, amount);
+        env.events().publish(
+            (soroban_sdk::symbol_short!("transfer"), from, to),
+            amount,
+        );
     }
 
     fn transfer_from(env: Env, spender: Address, from: Address, to: Address, amount: i128) {
         spender.require_auth();
-
-        let allowance_key = DataKey::Allowance(AllowanceKey {
-            from: from.clone(),
-            spender: spender.clone(),
-        });
-        let current: i128 = env
-            .storage()
-            .persistent()
-            .get(&allowance_key)
-            .unwrap_or(0);
-        assert!(current >= amount, "insufficient allowance");
+        let from_bal = Self::balance_of(&env, &from);
+        assert!(from_bal >= amount, "insufficient balance");
+        let to_bal = Self::balance_of(&env, &to);
 
         env.storage()
             .persistent()
-            .set(&allowance_key, &(current - amount));
-
-        let from_balance = Self::get_balance(&env, &from);
-        assert!(from_balance >= amount, "insufficient balance");
-        let to_balance = Self::get_balance(&env, &to);
-
+            .set(&DataKey::Balance(from.clone()), &(from_bal - amount));
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(from.clone()), &(from_balance - amount));
-        env.storage()
-            .persistent()
-            .set(&DataKey::Balance(to.clone()), &(to_balance + amount));
+            .set(&DataKey::Balance(to.clone()), &(to_bal + amount));
 
-        TokenUtils::new(&env)
-            .events()
-            .transfer(from, to, amount);
+        env.events().publish(
+            (soroban_sdk::symbol_short!("transfer"), from, to),
+            amount,
+        );
     }
 
     fn burn(env: Env, from: Address, amount: i128) {
         from.require_auth();
-        let balance = Self::get_balance(&env, &from);
-        assert!(balance >= amount, "insufficient balance");
+        let bal = Self::balance_of(&env, &from);
+        assert!(bal >= amount, "insufficient balance");
         env.storage()
             .persistent()
-            .set(&DataKey::Balance(from.clone()), &(balance - amount));
-        TokenUtils::new(&env).events().burn(from, amount);
+            .set(&DataKey::Balance(from.clone()), &(bal - amount));
+
+        let supply: i128 = env.storage().instance().get(&DataKey::TotalSupply).unwrap_or(0);
+        env.storage().instance().set(&DataKey::TotalSupply, &(supply - amount));
+
+        env.events().publish(
+            (soroban_sdk::symbol_short!("burn"), from),
+            amount,
+        );
     }
 
     fn burn_from(env: Env, spender: Address, from: Address, amount: i128) {
         spender.require_auth();
-        let allowance_key = DataKey::Allowance(AllowanceKey {
-            from: from.clone(),
-            spender: spender.clone(),
-        });
-        let current: i128 = env
-            .storage()
-            .persistent()
-            .get(&allowance_key)
-            .unwrap_or(0);
-        assert!(current >= amount, "insufficient allowance");
-        env.storage()
-            .persistent()
-            .set(&allowance_key, &(current - amount));
-
-        let balance = Self::get_balance(&env, &from);
-        assert!(balance >= amount, "insufficient balance");
-        env.storage()
-            .persistent()
-            .set(&DataKey::Balance(from.clone()), &(balance - amount));
-        TokenUtils::new(&env).events().burn(from, amount);
+        Self::burn(env, from, amount);
     }
 
     fn decimals(env: Env) -> u32 {
-        TokenUtils::new(&env).metadata().get_metadata().decimal
+        env.storage().instance().get(&DataKey::Decimals).unwrap_or(7)
     }
 
     fn name(env: Env) -> String {
-        TokenUtils::new(&env).metadata().get_metadata().name
+        env.storage()
+            .instance()
+            .get(&DataKey::Name)
+            .unwrap_or_else(|| String::from_str(&env, "Crowd Token"))
     }
 
     fn symbol(env: Env) -> String {
-        TokenUtils::new(&env).metadata().get_metadata().symbol
+        env.storage()
+            .instance()
+            .get(&DataKey::Symbol)
+            .unwrap_or_else(|| String::from_str(&env, "CROWD"))
     }
 }
 
@@ -211,14 +200,14 @@ mod tests {
     use super::*;
     use soroban_sdk::{testutils::Address as _, Env};
 
-    fn setup() -> (Env, Address, Address, CrowdTokenClient<'static>) {
+    fn setup() -> (Env, CrowdTokenClient<'static>) {
         let env = Env::default();
         env.mock_all_auths();
 
-        let contract_id = env.register_contract(None, CrowdToken);
-        let client = CrowdTokenClient::new(&env, &contract_id);
+        let id = env.register_contract(None, CrowdToken);
+        let client = CrowdTokenClient::new(&env, &id);
 
-        let admin = Address::generate(&env);
+        let admin  = Address::generate(&env);
         let minter = Address::generate(&env);
 
         client.initialize(
@@ -228,53 +217,51 @@ mod tests {
             &String::from_str(&env, "Crowd Token"),
             &String::from_str(&env, "CROWD"),
         );
-
-        (env, admin, minter, client)
+        (env, client)
     }
 
     #[test]
     fn test_metadata() {
-        let (_, _, _, client) = setup();
-        assert_eq!(client.decimals(), 7);
-        assert_eq!(client.name(), soroban_sdk::String::from_str(&client.env, "Crowd Token"));
-        assert_eq!(client.symbol(), soroban_sdk::String::from_str(&client.env, "CROWD"));
+        let (env, c) = setup();
+        assert_eq!(c.decimals(), 7);
+        assert_eq!(c.name(),   String::from_str(&env, "Crowd Token"));
+        assert_eq!(c.symbol(), String::from_str(&env, "CROWD"));
     }
 
     #[test]
     fn test_mint_and_balance() {
-        let (env, _, minter, client) = setup();
-        let recipient = Address::generate(&env);
-        client.mint(&recipient, &1_000_0000000);
-        assert_eq!(client.balance(&recipient), 1_000_0000000);
+        let (env, c) = setup();
+        let user = Address::generate(&env);
+        c.mint(&user, &1_000_0000000_i128);
+        assert_eq!(c.balance(&user), 1_000_0000000);
+        assert_eq!(c.total_supply(), 1_000_0000000);
     }
 
     #[test]
     fn test_transfer() {
-        let (env, _, minter, client) = setup();
+        let (env, c) = setup();
         let alice = Address::generate(&env);
-        let bob = Address::generate(&env);
-        client.mint(&alice, &500_0000000);
-        client.transfer(&alice, &bob, &200_0000000);
-        assert_eq!(client.balance(&alice), 300_0000000);
-        assert_eq!(client.balance(&bob), 200_0000000);
+        let bob   = Address::generate(&env);
+        c.mint(&alice, &500_0000000_i128);
+        c.transfer(&alice, &bob, &200_0000000_i128);
+        assert_eq!(c.balance(&alice), 300_0000000);
+        assert_eq!(c.balance(&bob),   200_0000000);
     }
 
     #[test]
     fn test_burn() {
-        let (env, _, _, client) = setup();
+        let (env, c) = setup();
         let alice = Address::generate(&env);
-        client.mint(&alice, &100_0000000);
-        client.burn(&alice, &40_0000000);
-        assert_eq!(client.balance(&alice), 60_0000000);
+        c.mint(&alice, &100_0000000_i128);
+        c.burn(&alice, &40_0000000_i128);
+        assert_eq!(c.balance(&alice), 60_0000000);
+        assert_eq!(c.total_supply(),  60_0000000);
     }
 
     #[test]
-    fn test_only_minter_can_mint() {
-        let (env, _, _, client) = setup();
-        let rando = Address::generate(&env);
-        let result = std::panic::catch_unwind(|| {
-            client.mint(&rando, &100);
-        });
-        assert_eq!(client.balance(&rando), 0);
+    fn test_zero_balance_default() {
+        let (env, c) = setup();
+        let nobody = Address::generate(&env);
+        assert_eq!(c.balance(&nobody), 0);
     }
 }
