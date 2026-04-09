@@ -2,8 +2,9 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype,
-    token::Client as TokenClient,
+    vec,
     Address, Env, String, Symbol,
+    IntoVal,
 };
 
 #[derive(Clone)]
@@ -26,27 +27,35 @@ pub struct Campaign {
     pub withdrawn: bool,
 }
 
-const REWARD_RATIO: i128 = 10_0000000; // 10 CROWD per 1 XLM
+const REWARD_RATIO: i128 = 10_0000000;
 const STROOPS_PER_XLM: i128 = 10_000_000;
 
 fn emit_donated(env: &Env, donor: &Address, amount: i128, reward: i128, total_raised: i128) {
-    let topics = (Symbol::new(env, "donated"), donor.clone());
-    env.events().publish(topics, (amount, reward, total_raised));
+    env.events().publish(
+        (Symbol::new(env, "donated"), donor.clone()),
+        (amount, reward, total_raised),
+    );
 }
 
 fn emit_withdrawn(env: &Env, owner: &Address, amount: i128) {
-    let topics = (Symbol::new(env, "withdrawn"), owner.clone());
-    env.events().publish(topics, amount);
+    env.events().publish(
+        (Symbol::new(env, "withdrawn"), owner.clone()),
+        amount,
+    );
 }
 
 fn emit_refunded(env: &Env, donor: &Address, amount: i128) {
-    let topics = (Symbol::new(env, "refunded"), donor.clone());
-    env.events().publish(topics, amount);
+    env.events().publish(
+        (Symbol::new(env, "refunded"), donor.clone()),
+        amount,
+    );
 }
 
 fn emit_reward_minted(env: &Env, donor: &Address, reward: i128) {
-    let topics = (Symbol::new(env, "reward_minted"), donor.clone());
-    env.events().publish(topics, reward);
+    env.events().publish(
+        (Symbol::new(env, "reward_minted"), donor.clone()),
+        reward,
+    );
 }
 
 #[contract]
@@ -54,6 +63,7 @@ pub struct CrowdfundContract;
 
 #[contractimpl]
 impl CrowdfundContract {
+
     pub fn initialize(
         env: Env,
         owner: Address,
@@ -67,14 +77,10 @@ impl CrowdfundContract {
             panic!("already initialized");
         }
         owner.require_auth();
-
         assert!(goal > 0, "goal must be positive");
-        assert!(
-            deadline > env.ledger().timestamp(),
-            "deadline must be in the future"
-        );
+        assert!(deadline > env.ledger().timestamp(), "deadline must be in the future");
 
-        let campaign = Campaign {
+        env.storage().instance().set(&DataKey::Campaign, &Campaign {
             owner,
             title,
             description,
@@ -82,13 +88,10 @@ impl CrowdfundContract {
             deadline,
             raised: 0,
             withdrawn: false,
-        };
-        env.storage().instance().set(&DataKey::Campaign, &campaign);
+        });
 
         if let Some(token_addr) = reward_token {
-            env.storage()
-                .instance()
-                .set(&DataKey::RewardToken, &token_addr);
+            env.storage().instance().set(&DataKey::RewardToken, &token_addr);
         }
     }
 
@@ -99,35 +102,27 @@ impl CrowdfundContract {
             env.storage().instance().get(&DataKey::Campaign).unwrap();
 
         assert!(amount > 0, "amount must be positive");
-        assert!(
-            env.ledger().timestamp() <= campaign.deadline,
-            "campaign has ended"
-        );
+        assert!(env.ledger().timestamp() <= campaign.deadline, "campaign has ended");
         assert!(!campaign.withdrawn, "campaign already completed");
 
-        let prev: i128 = env
-            .storage()
-            .persistent()
+        let prev: i128 = env.storage().persistent()
             .get(&DataKey::Donation(donor.clone()))
             .unwrap_or(0);
-        env.storage()
-            .persistent()
+        env.storage().persistent()
             .set(&DataKey::Donation(donor.clone()), &(prev + amount));
 
         campaign.raised += amount;
         env.storage().instance().set(&DataKey::Campaign, &campaign);
 
         let reward_tokens = Self::compute_reward(amount);
-        if let Some(token_addr) = env
-            .storage()
-            .instance()
+
+        if let Some(token_addr) = env.storage().instance()
             .get::<DataKey, Address>(&DataKey::RewardToken)
         {
-            let token_client = TokenClient::new(&env, &token_addr);
             env.invoke_contract::<()>(
                 &token_addr,
                 &Symbol::new(&env, "mint"),
-                soroban_sdk::vec![
+                vec![
                     &env,
                     donor.clone().into_val(&env),
                     reward_tokens.into_val(&env),
@@ -161,21 +156,15 @@ impl CrowdfundContract {
         let campaign: Campaign =
             env.storage().instance().get(&DataKey::Campaign).unwrap();
 
-        assert!(
-            env.ledger().timestamp() > campaign.deadline,
-            "campaign still active"
-        );
+        assert!(env.ledger().timestamp() > campaign.deadline, "campaign still active");
         assert!(campaign.raised < campaign.goal, "goal was reached, no refund");
 
-        let donation: i128 = env
-            .storage()
-            .persistent()
+        let donation: i128 = env.storage().persistent()
             .get(&DataKey::Donation(donor.clone()))
             .unwrap_or(0);
         assert!(donation > 0, "no donation found");
 
-        env.storage()
-            .persistent()
+        env.storage().persistent()
             .set(&DataKey::Donation(donor.clone()), &0_i128);
 
         emit_refunded(&env, &donor, donation);
@@ -187,8 +176,7 @@ impl CrowdfundContract {
     }
 
     pub fn get_donation(env: Env, donor: Address) -> i128 {
-        env.storage()
-            .persistent()
+        env.storage().persistent()
             .get(&DataKey::Donation(donor))
             .unwrap_or(0)
     }
@@ -196,9 +184,7 @@ impl CrowdfundContract {
     pub fn get_progress(env: Env) -> u32 {
         let campaign: Campaign =
             env.storage().instance().get(&DataKey::Campaign).unwrap();
-        if campaign.goal == 0 {
-            return 0;
-        }
+        if campaign.goal == 0 { return 0; }
         ((campaign.raised * 100) / campaign.goal).min(100) as u32
     }
 
@@ -212,7 +198,7 @@ impl CrowdfundContract {
         env.storage().instance().get(&DataKey::RewardToken)
     }
 
-    pub fn preview_reward(env: Env, amount: i128) -> i128 {
+    pub fn preview_reward(_env: Env, amount: i128) -> i128 {
         Self::compute_reward(amount)
     }
 
@@ -227,8 +213,8 @@ mod tests {
     use soroban_sdk::{testutils::Address as _, testutils::Ledger, Env};
 
     fn create_campaign(env: &Env) -> (Address, CrowdfundContractClient) {
-        let contract_id = env.register_contract(None, CrowdfundContract);
-        let client = CrowdfundContractClient::new(env, &contract_id);
+        let id = env.register_contract(None, CrowdfundContract);
+        let client = CrowdfundContractClient::new(env, &id);
         let owner = Address::generate(env);
         let deadline = env.ledger().timestamp() + 86_400;
 
@@ -236,7 +222,7 @@ mod tests {
             &owner,
             &String::from_str(env, "Test Campaign"),
             &String::from_str(env, "A test crowdfund campaign"),
-            &1_000_0000000_i128, // 1000 XLM goal
+            &1_000_0000000_i128,
             &deadline,
             &None,
         );
@@ -259,14 +245,13 @@ mod tests {
         env.mock_all_auths();
         let (_, client) = create_campaign(&env);
         let donor = Address::generate(&env);
-
         let raised = client.donate(&donor, &100_0000000_i128);
         assert_eq!(raised, 100_0000000);
         assert_eq!(client.get_donation(&donor), 100_0000000);
     }
 
     #[test]
-    fn test_donate_reward_preview() {
+    fn test_reward_preview() {
         let env = Env::default();
         env.mock_all_auths();
         let (_, client) = create_campaign(&env);
@@ -290,8 +275,8 @@ mod tests {
         let (_, client) = create_campaign(&env);
         let donor = Address::generate(&env);
         client.donate(&donor, &1_000_0000000_i128);
-        let withdrawn = client.withdraw();
-        assert_eq!(withdrawn, 1_000_0000000);
+        let w = client.withdraw();
+        assert_eq!(w, 1_000_0000000);
     }
 
     #[test]
@@ -313,26 +298,11 @@ mod tests {
         let donor = Address::generate(&env);
         client.donate(&donor, &10_0000000_i128);
 
-        env.ledger().with_mut(|l| {
-            l.timestamp = l.timestamp + 86_401;
-        });
+        env.ledger().with_mut(|l| { l.timestamp += 86_401; });
 
-        let refund = client.refund(&donor);
-        assert_eq!(refund, 10_0000000);
+        let r = client.refund(&donor);
+        assert_eq!(r, 10_0000000);
         assert_eq!(client.get_donation(&donor), 0);
-    }
-
-    #[test]
-    fn test_is_active() {
-        let env = Env::default();
-        env.mock_all_auths();
-        let (_, client) = create_campaign(&env);
-        assert!(client.is_active());
-
-        env.ledger().with_mut(|l| {
-            l.timestamp = l.timestamp + 86_401;
-        });
-        assert!(!client.is_active());
     }
 
     #[test]
@@ -344,6 +314,15 @@ mod tests {
         client.donate(&donor, &50_0000000_i128);
         client.donate(&donor, &50_0000000_i128);
         assert_eq!(client.get_donation(&donor), 100_0000000);
-        assert_eq!(client.get_progress(), 10);
+    }
+
+    #[test]
+    fn test_is_active() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (_, client) = create_campaign(&env);
+        assert!(client.is_active());
+        env.ledger().with_mut(|l| { l.timestamp += 86_401; });
+        assert!(!client.is_active());
     }
 }

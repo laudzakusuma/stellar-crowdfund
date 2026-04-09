@@ -1,7 +1,7 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
 export const CONTRACT_ID =
   process.env.NEXT_PUBLIC_CONTRACT_ID ||
-  "CBCYFVAVRA3PSMY7TIAXQAWWYZX5MGM5OKGPJB33EHXY3POQ5K4674R4";
+  "CCTPQORDKR2EXUR6BOBTA7UXM7NSPP3MRI7BXSNTOWF5F5KQ2ZALCQZR";
   
 export const NETWORK = StellarSdk.Networks.TESTNET;
 export const RPC_URL = 

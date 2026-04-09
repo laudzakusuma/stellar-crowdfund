@@ -11,7 +11,7 @@ import { EventFeed } from "@/components/EventFeed";
 import { CampaignSkeleton, EventFeedSkeleton, Spinner } from "@/components/LoadingStates";
 import { contractExplorerUrl, txExplorerUrl, shortAddress } from "@/lib/stellar";
 
-const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID || "CBCYFVAVRA3PSMY7TIAXQAWWYZX5MGM5OKGPJB33EHXY3POQ5K4674R4";
+const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID || "CCTPQORDKR2EXUR6BOBTA7UXM7NSPP3MRI7BXSNTOWF5F5KQ2ZALCQZR";
 
 function Starfield() {
   return (
@@ -67,7 +67,7 @@ export default function Home() {
     }
   }, [wallet.address, wallet.signAndSubmit, contract.buildDonateXDR]);
 
-  const isNotDefaultContract = CONTRACT_ID !== "CBCYFVAVRA3PSMY7TIAXQAWWYZX5MGM5OKGPJB33EHXY3POQ5K4674R4";
+  const isNotDefaultContract = CONTRACT_ID !== "CCTPQORDKR2EXUR6BOBTA7UXM7NSPP3MRI7BXSNTOWF5F5KQ2ZALCQZR";
   const campaignExpired = contract.campaign && Number(contract.campaign.deadline) < Date.now() / 1000;
 
   return (

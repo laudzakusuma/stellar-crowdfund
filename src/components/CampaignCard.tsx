@@ -74,7 +74,7 @@ export function CampaignCard({ campaign, myDonation }: CampaignCardProps) {
     <div className="campaign-card">
       <div className="campaign-status-row">
         <span className={`badge ${getBadgeClass()}`}>{getBadgeText()}</span>
-        {CONTRACT_ID && CONTRACT_ID !== "CBCYFVAVRA3PSMY7TIAXQAWWYZX5MGM5OKGPJB33EHXY3POQ5K4674R4" && (
+        {CONTRACT_ID && CONTRACT_ID !== "CCTPQORDKR2EXUR6BOBTA7UXM7NSPP3MRI7BXSNTOWF5F5KQ2ZALCQZR" && (
           <a
             href={contractExplorerUrl(CONTRACT_ID)}
             target="_blank"
