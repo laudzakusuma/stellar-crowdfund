@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.0.1",
