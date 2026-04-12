@@ -18,7 +18,6 @@ env:
   NEXT_PUBLIC_CROWD_TOKEN_CONTRACT_ID: ${{ secrets.CROWD_TOKEN_CONTRACT_ID || 'PLACEHOLDER_TOKEN' }}
 
 jobs:
-
   contract-tests:
     name: Contract Tests (Rust)
     runs-on: ubuntu-latest
@@ -94,12 +93,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install vitest if missing
-        run: |
-          if ! npx vitest --version > /dev/null 2>&1; then
-            npm install -D vitest @vitejs/plugin-react jsdom
-          fi
-
       - name: Run tests
         run: npx vitest run --passWithNoTests
 
@@ -151,16 +144,25 @@ jobs:
 
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build for Vercel
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy
         id: deploy
         run: |
           URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Deployed to: $URL"
+          echo "Deployed: $URL"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
   lighthouse:
     name: Lighthouse Audit
