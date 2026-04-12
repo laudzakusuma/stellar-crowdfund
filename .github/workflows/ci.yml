@@ -174,10 +174,10 @@ jobs:
 
       - uses: treosh/lighthouse-ci-action@v11
         with:
-          urls: ${{ secrets.VERCEL_PRODUCTION_URL }}
+          urls: |
+            https://stellar-crowdfund-seven.vercel.app
           uploadArtifacts: true
           temporaryPublicStorage: true
-          budgetPath: ./lighthouse-budget.json
 
   security:
     name: Security Audit
