@@ -1,6 +1,6 @@
 # Stellar Crowdfund
 
-> Decentralized crowdfunding on Stellar Testnet — **Orange Belt (Level 3)** submission for the [Stellar Journey to Mastery](https://stellar.org) program.
+> Decentralized crowdfunding on Stellar Testnet — **Green Belt (Level 4)** submission for the [Stellar Journey to Mastery](https://stellar.org) program.
 
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet-blue?logo=stellar)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-Smart_Contract-orange)](https://soroban.stellar.org)
