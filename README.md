@@ -1,11 +1,16 @@
 # Stellar Crowdfund
 
-> Decentralized crowdfunding on Stellar Testnet — **Yellow Belt (Level 2)** submission for the [Stellar Journey to Mastery](https://stellar.org) program.
+> Decentralized crowdfunding on Stellar.
 
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet-blue?logo=stellar)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-Smart_Contract-orange)](https://soroban.stellar.org)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://typescriptlang.org)
+
+---
+
+## LIVE DEMO
+https://stellar-crowdfund-seven.vercel.app
 
 ---
 
@@ -46,18 +51,6 @@ The application is deployed on Stellar Testnet and fully integrated with a Sorob
 ### Test Output
 ![Tests](./docs/screenshots/tests.png)
 > 4 Tests Passed !!
-
----
-
-## Level 2 Requirements Checklist
-
-| Requirement | Status | Notes |
-|---|---|---|
-| 3 error types handled | ✅ | `WALLET_NOT_FOUND`, `USER_REJECTED`, `INSUFFICIENT_BALANCE` |
-| Contract deployed on testnet | ✅ | See contract address below |
-| Contract called from frontend | ✅ | `donate()`, `get_campaign()`, `get_donation()` |
-| Transaction status visible | ✅ | Pending / Success / Error banner with Explorer link |
-| 2+ meaningful commits | ✅ | See git log |
 
 ---
 
