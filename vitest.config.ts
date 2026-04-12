@@ -8,10 +8,28 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     passWithNoTests: true,
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    setupFiles: ["./vitest.setup.ts"],
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "src/__tests__/**/*.{ts,tsx}",
+    ],
+    exclude: [
+      "node_modules",
+      ".next",
+      "contracts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
+      exclude: [
+        "node_modules",
+        ".next",
+        "vitest.setup.ts",
+        "vitest.config.ts",
+        "next.config.js",
+        "tailwind.config.ts",
+        "postcss.config.js",
+      ],
     },
   },
   resolve: {
