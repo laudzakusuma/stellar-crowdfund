@@ -51,6 +51,8 @@ Key mobile features:
 
 ## CI/CD Pipeline
 
+![Pipeline Running](./docs/screenshots/pipeline.png)
+
 [![CI/CD](https://github.com/laudzakusuma/stellar-crowdfund/actions/workflows/ci.yml/badge.svg)](https://github.com/laudzakusuma/stellar-crowdfund/actions/workflows/ci.yml)
 
 Automated 7-job pipeline triggers on every push to `main`:
